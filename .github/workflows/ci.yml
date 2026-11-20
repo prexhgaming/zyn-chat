@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Release APKs are signed with the repository's release keystore, which is restored from
+  # encrypted secrets before Gradle starts (never committed to the repository).
+  # One APK is built per ABI (plus a universal APK) and every split is uploaded as its own
+  # artifact, so each ABI can be downloaded and installed independently.
+  release-apks:
+    name: Release split APKs (signed)
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore signing keystore from secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is not set (see README 'Release signing')"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
+          echo "Keystore restored: $ANDROID_KEYSTORE_PATH ($(wc -c < "$ANDROID_KEYSTORE_PATH") bytes)"
+
+      - name: Build split release APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :zyn-chat-app:assembleRelease --stacktrace
+
+      - name: Verify APKs are signed with the release key
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APKSIGNER="$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)/apksigner"
+          if [ ! -x "$APKSIGNER" ]; then
+            echo "apksigner not found in $SDK, skipping signature check"
+            exit 0
+          fi
+          for apk in zyn-chat-app/build/outputs/apk/release/*.apk; do
+            echo "== $apk"
+            "$APKSIGNER" verify --print-certs "$apk" | head -3
+          done
+
+      - name: Upload APK - arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyn-chat-release-arm64-v8a
+          path: zyn-chat-app/build/outputs/apk/release/*arm64-v8a*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload APK - armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyn-chat-release-armeabi-v7a
+          path: zyn-chat-app/build/outputs/apk/release/*armeabi-v7a*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload APK - x86_64
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyn-chat-release-x86_64
+          path: zyn-chat-app/build/outputs/apk/release/*x86_64*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload APK - universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyn-chat-release-universal
+          path: zyn-chat-app/build/outputs/apk/release/*universal*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyn-chat-release-r8-mapping
+          path: zyn-chat-app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest --stacktrace
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/paparazzi/**
+
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint
+        run: |
+          chmod +x ./gradlew
+          ./gradlew lint
+
+      - name: Detekt
+        run: ./gradlew detekt

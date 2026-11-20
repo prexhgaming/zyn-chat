@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+.DS_Store
+**/build
+buildSrc/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.idea
+.kotlin
+
+# Release signing material — never commit.
+keystore.jks
+*.jks
+*.keystore
+signing.properties
+.secrets/
+
+# Uploaded attachments / dropped archives (may contain signing material).
+uploads/
+
+# Local agent tooling state: baseline snapshots, plan and edit history — not app source.
+.base/
+.polydev/
