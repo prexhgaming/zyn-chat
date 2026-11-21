@@ -64,6 +64,16 @@ Stream license headers stay in place (see `LICENSE`).
   key lookup and the failure copy. **Engines are stateless**: a request carries its whole
   conversation, built from that conversation alone, and collecting is what makes the HTTP call — so
   cancelling (stop, or leaving the chat) cancels it and no answer can land in another chat.
+- Conversations: `data/chat/ConversationStore.kt` keeps **one JSON file per conversation** under
+  `filesDir/conversations/`, and `domain/chat/ConversationRepository.kt` is the **only** source of a
+  conversation's turns and title, always keyed by conversation id. Never add a shared or global message
+  list: a provider request is built from `history(conversationId)` alone, which is what keeps one
+  chat's history out of another's (the per-conversation `ViewModelStore` key and the cancelled stream
+  job in `ChatViewModel` complete the guarantee).
+- Titles are derived on the device (`domain/chat/ConversationTitles.kt`, Markdown stripped, capped at
+  48 chars) instead of repeating the first message verbatim. `TitleSource.Manual` (a rename) is final:
+  an automatic title never overwrites it. `ConversationRepository.revision` is the signal the drawer
+  refreshes on.
 - **Credentials never leak**: `di/NetworkModule.kt` redacts `Authorization` / `x-api-key` /
   `api-key` / `x-goog-api-key` on the single logging interceptor, and logging is only enabled in
   debug builds (`App.kt` passes `BuildConfig.DEBUG`). Every provider authenticates with a **header,
@@ -117,6 +127,11 @@ The keystore is **never committed** (`*.jks`, `signing.properties`, `.secrets/` 
 ## Scope
 
 Setup and UI/UX redesign are done; the drawer, composer, dictation and model picker are real UI.
-BYOK key management, AI provider integrations and request routing are **not implemented yet**: the
-provider/model architecture, persistence and empty states exist, but nothing registers a provider.
-Do not invent providers, models or backend behaviour.
+
+Implemented: the providers screen (known provider → validated key → real `/models`), encrypted
+device-local key storage, model discovery with in-house brand marks, and bring-your-own-key streaming
+answers kept per conversation with derived titles.
+
+Not implemented yet: request routing (the Routing screen is presentation only), the drawer search
+action, the profile row, and conversation sync anywhere off the device. Do not invent providers,
+models or backend behaviour.
