@@ -29,7 +29,6 @@ import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.domain.chat.ChatRole
 import com.zyn.chat.app.domain.chat.ChatTurn
 import com.zyn.chat.app.domain.chat.ConversationRepository
-import com.zyn.chat.app.domain.chat.UNSAVED_CONVERSATION_ID
 import com.zyn.chat.app.domain.isFromAi
 import com.zyn.chat.compose.ui.component.MessageData
 import com.zyn.chat.ondevice.AIConversationTurn
@@ -86,6 +85,7 @@ internal class ChatViewModel(
     apiKeyStore: ApiKeyStore,
     chatEngine: ChatEngine,
     private val conversations: ConversationRepository,
+    private val localConversationId: String,
     appContext: Context,
     conversationId: String?,
 ) : ViewModel() {
@@ -324,7 +324,7 @@ internal class ChatViewModel(
      */
     private suspend fun answerWithProvider(text: String, selection: ProviderSelection) {
         val answerId = UUID.randomUUID().toString()
-        val conversationId = cid.value ?: UNSAVED_CONVERSATION_ID
+        val conversationId = cid.value ?: localConversationId
 
         // Built before the question is added, so it appears in the request exactly once. The stored
         // turns of this conversation win; the screen's messages are the fallback for conversations

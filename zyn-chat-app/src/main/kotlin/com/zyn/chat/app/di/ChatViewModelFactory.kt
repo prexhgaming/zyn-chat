@@ -46,6 +46,7 @@ class ChatViewModelFactory(
     private val apiKeyStore: ApiKeyStore,
     private val chatEngine: ChatEngine,
     private val conversations: ConversationRepository,
+    private val localConversationId: String,
     private val appContext: Context,
     private val chatClient: ChatClient = ChatClient.instance(),
     private val conversationId: String?,
@@ -70,6 +71,7 @@ class ChatViewModelFactory(
             apiKeyStore = apiKeyStore,
             chatEngine = chatEngine,
             conversations = conversations,
+            localConversationId = localConversationId,
             appContext = appContext,
             conversationId = conversationId,
         ) as T

@@ -53,6 +53,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.di.ConversationListViewModelFactory
+import com.zyn.chat.app.domain.chat.newConversationId
 import com.zyn.chat.app.presentation.conversations.ConversationListViewModel
 import com.zyn.chat.app.presentation.providers.ProvidersViewModel
 import com.zyn.chat.app.presentation.providers.ProvidersViewModelFactory
@@ -107,6 +108,12 @@ public fun AiChatApp(
     var showProviders by rememberSaveable { mutableStateOf(false) }
 
     /**
+     * Storage id for the chat being started. Regenerated for every new chat, so two chats started in
+     * the same session can never share stored history.
+     */
+    var newChatStorageId by rememberSaveable { mutableStateOf(newConversationId()) }
+
+    /**
      * Revision counter for new chats. Incremented each time "New chat" is clicked.
      * This ensures AnimatedContent detects a state change even when already on a new chat (null -> null).
      */
@@ -120,6 +127,16 @@ public fun AiChatApp(
     val onManageProviders: () -> Unit = {
         showModelPicker = false
         showProviders = true
+    }
+
+    /**
+     * Starts a fresh chat: no conversation selected yet, and a brand-new storage id, so its history
+     * stays separate from every chat that came before it.
+     */
+    fun startNewChat() {
+        selectedConversationId = null
+        newChatStorageId = newConversationId()
+        newChatRevision++
     }
 
     // Hide the keyboard when the drawer opens.
@@ -151,8 +168,7 @@ public fun AiChatApp(
                     conversations = conversationListState.conversations,
                     selectedConversationId = selectedConversationId,
                     onNewChatClick = {
-                        selectedConversationId = null
-                        newChatRevision++
+                        startNewChat()
                         scope.launch { drawerState.close() }
                     },
                     onConversationClick = { conversationId ->
@@ -185,16 +201,13 @@ public fun AiChatApp(
                     ChatScreen(
                         modifier = Modifier.fillMaxSize(),
                         conversationId = selectedConversationId,
+                        localConversationId = newChatStorageId,
                         chatDependencies = chatDependencies,
                         onMenuClick = { scope.launch { drawerState.open() } },
-                        onNewChatClick = {
-                            selectedConversationId = null
-                            newChatRevision++
-                        },
+                        onNewChatClick = { startNewChat() },
                         onChatDeleted = {
-                            // Navigate back to new chat after deletion.
-                            selectedConversationId = null
-                            newChatRevision++
+                            // Navigate back to a new chat after deletion.
+                            startNewChat()
                         },
                         modelName = providersState.selectedModel?.displayName,
                         onModelClick = { showModelPicker = true },

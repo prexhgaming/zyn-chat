@@ -70,6 +70,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun ChatScreen(
     conversationId: String?,
+    localConversationId: String,
     chatDependencies: ChatDependencies,
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -87,6 +88,7 @@ fun ChatScreen(
             apiKeyStore = chatDependencies.apiKeyStore,
             chatEngine = chatDependencies.chatEngine,
             conversations = chatDependencies.conversationRepository,
+            localConversationId = localConversationId,
             appContext = appContext,
             conversationId = conversationId,
         ),

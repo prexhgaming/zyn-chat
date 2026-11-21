@@ -25,12 +25,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /**
- * Key used for a conversation that does not exist yet, so a first exchange is still stored under a
- * stable id instead of being dropped.
+ * A fresh id for a conversation that is being started.
+ *
+ * Each new chat gets its own id, so two chats started in the same session never share stored
+ * history — a single shared fallback key would let one chat see another's messages.
  */
-public const val UNSAVED_CONVERSATION_ID: String = "local"
+public fun newConversationId(): String = UUID.randomUUID().toString()
 
 /**
  * What the drawer needs to know about a conversation, without its messages.
