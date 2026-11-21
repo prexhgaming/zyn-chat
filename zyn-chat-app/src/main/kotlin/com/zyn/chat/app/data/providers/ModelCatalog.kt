@@ -27,18 +27,39 @@ package com.zyn.chat.app.data.providers
 public object ModelCatalog {
 
     /**
-     * Builds the app's model record for one provider-side slug.
+     * Builds the app's model record from what a provider reported about it.
+     *
+     * What the provider said always wins; local knowledge fills the gaps; whatever is left is kept
+     * unknown rather than guessed, so nothing downstream has to unlearn a fiction.
+     *
+     * @param providerId Provider that reported the model.
+     * @param reported The facts the provider sent for this model.
+     */
+    public fun enrich(providerId: String, reported: ReportedModel): AiModel {
+        val capabilities = reported.capabilities
+            .orElse(ModelCapabilityCatalog.of(reported.slug))
+            .orElse(ModelCapabilities(contextWindowTokens = contextWindowOf(reported.slug)))
+
+        return AiModel(
+            id = modelKey(providerId, reported.slug),
+            displayName = reported.displayName?.takeIf(String::isNotBlank) ?: prettyName(reported.slug),
+            slug = reported.slug,
+            providerId = providerId,
+            contextWindowTokens = capabilities.contextWindowTokens,
+            isFree = reported.isFree ?: isFreeModel(reported.slug),
+            capabilities = capabilities,
+        )
+    }
+
+    /**
+     * Builds the app's model record for a slug nothing else is known about.
      *
      * @param providerId Provider that reported the slug.
      * @param slug Provider-side model identifier, e.g. `gpt-4o-mini`.
      */
-    public fun enrich(providerId: String, slug: String): AiModel = AiModel(
-        id = modelKey(providerId, slug),
-        displayName = prettyName(slug),
-        slug = slug,
+    public fun enrich(providerId: String, slug: String): AiModel = enrich(
         providerId = providerId,
-        contextWindowTokens = contextWindowOf(slug),
-        isFree = isFreeModel(slug),
+        reported = ReportedModel(slug = slug),
     )
 
     /**
@@ -59,6 +80,25 @@ public object ModelCatalog {
      */
     public fun isFreeModel(slug: String): Boolean = slug.lowercase().endsWith(FREE_SUFFIX)
 }
+
+/**
+ * What a provider reported about one model.
+ *
+ * This mirrors the fields the app understands from an OpenAI-compatible `/models` response, with
+ * every field optional because most endpoints send nothing beyond an id. It carries raw facts and no
+ * display concerns, and it is the input to [ModelCatalog.enrich].
+ *
+ * @param slug Provider-side model identifier, e.g. `gpt-4o-mini`.
+ * @param displayName Name the provider gave, when it gave one.
+ * @param capabilities Capabilities the provider stated; anything unstated stays unknown.
+ * @param isFree Whether the provider says the model costs nothing, or `null` when it did not say.
+ */
+public data class ReportedModel(
+    public val slug: String,
+    public val displayName: String? = null,
+    public val capabilities: ModelCapabilities = ModelCapabilities.UNKNOWN,
+    public val isFree: Boolean? = null,
+)
 
 /**
  * Readable name for a slug, derived from the slug itself: `gpt-4o-mini` reads as `GPT-4o-mini` and

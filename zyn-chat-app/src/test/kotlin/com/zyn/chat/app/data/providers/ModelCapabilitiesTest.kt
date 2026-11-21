@@ -1,0 +1,150 @@
+/*
+ * Copyright (c) 2014-2026 Stream.io Inc. All rights reserved.
+ *
+ * Licensed under the Stream License;
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   https://github.com/GetStream/stream-chat-android-ai/blob/main/LICENSE
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.zyn.chat.app.data.providers
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * Pins the capability rules, especially the difference between "no" and "not known", and the
+ * precedence that stops a vision family from swallowing its own text-only variants.
+ */
+class ModelCapabilitiesTest {
+
+    @Test
+    fun `what the provider says beats local knowledge`() {
+        val model = ModelCatalog.enrich(
+            providerId = "openrouter",
+            reported = ReportedModel(
+                slug = "gpt-4o",
+                capabilities = ModelCapabilities.textOnly(),
+            ),
+        )
+
+        assertEquals(false, model.capabilities.imageSupport)
+        assertFalse(model.acceptsImages)
+    }
+
+    @Test
+    fun `a vision marker is enough to allow images`() {
+        val model = ModelCatalog.enrich("ollama", "qwen2-vl-7b-instruct")
+
+        assertTrue(model.acceptsImages)
+        assertEquals(true, model.capabilities.imageSupport)
+    }
+
+    @Test
+    fun `an unknown model stays unknown instead of being guessed`() {
+        val model = ModelCatalog.enrich("local", "some-internal-model-v3")
+
+        assertNull(model.capabilities.imageSupport)
+        assertFalse(model.acceptsImages)
+        assertFalse(model.capabilities.isKnown)
+    }
+
+    @Test
+    fun `a text-only variant does not inherit its family's vision support`() {
+        val textOnlyVariant = ModelCatalog.enrich("openai", "o1-mini")
+        val visionSibling = ModelCatalog.enrich("openai", "o1")
+
+        assertEquals(false, textOnlyVariant.capabilities.imageSupport)
+        assertEquals(true, visionSibling.capabilities.imageSupport)
+    }
+
+    @Test
+    fun `a vendor namespace and a free suffix do not hide the model`() {
+        val model = ModelCatalog.enrich("openrouter", "meta-llama/llama-4-scout:free")
+
+        assertTrue(model.acceptsImages)
+        assertTrue(model.isFree)
+    }
+
+    @Test
+    fun `a dated snapshot still matches its family`() {
+        val model = ModelCatalog.enrich("openai", "gpt-4o-2024-08-06")
+
+        assertTrue(model.acceptsImages)
+    }
+
+    @Test
+    fun `the provider's context window wins over the local table`() {
+        val model = ModelCatalog.enrich(
+            providerId = "openrouter",
+            reported = ReportedModel(
+                slug = "gpt-4o",
+                capabilities = ModelCapabilities(contextWindowTokens = 999),
+            ),
+        )
+
+        assertEquals(999, model.contextWindowTokens)
+    }
+
+    @Test
+    fun `a context window is filled in locally when the provider is silent`() {
+        val model = ModelCatalog.enrich("openai", "gpt-4o")
+
+        assertEquals(128_000, model.contextWindowTokens)
+    }
+
+    @Test
+    fun `tool support is only ever taken from the provider`() {
+        val reported = ModelCatalog.enrich(
+            providerId = "openrouter",
+            reported = ReportedModel(
+                slug = "gpt-4o",
+                capabilities = ModelCapabilities(supportsTools = true),
+            ),
+        )
+        val silent = ModelCatalog.enrich("openai", "gpt-4o")
+
+        assertEquals(true, reported.capabilities.supportsTools)
+        assertNull(silent.capabilities.supportsTools)
+    }
+
+    @Test
+    fun `unknown fields are filled from the fallback and known ones are kept`() {
+        val merged = ModelCapabilities(supportsTools = true)
+            .orElse(ModelCapabilities.textOnly(contextWindowTokens = 4_000))
+
+        assertEquals(true, merged.supportsTools)
+        assertEquals(false, merged.imageSupport)
+        assertEquals(4_000, merged.contextWindowTokens)
+    }
+
+    @Test
+    fun `provider modality spellings are read, and unknown ones are ignored`() {
+        assertEquals(Modality.Image, Modality.of("image"))
+        assertEquals(Modality.Image, Modality.of("vision"))
+        assertEquals(Modality.Text, Modality.of(" TEXT "))
+        assertNull(Modality.of("smell"))
+    }
+
+    @Test
+    fun `a prompt price of zero marks a model free`() {
+        val priced = ModelCatalog.enrich(
+            providerId = "openrouter",
+            reported = ReportedModel(slug = "gpt-4o", isFree = true),
+        )
+        val paid = ModelCatalog.enrich("openai", "gpt-4o")
+
+        assertTrue(priced.isFree)
+        assertFalse(paid.isFree)
+    }
+}

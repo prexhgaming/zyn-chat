@@ -30,6 +30,8 @@ package com.zyn.chat.app.data.providers
  *   not report one.
  * @param isFree Whether the model can be used without the person's own API key.
  * @param available Whether the model can currently be used.
+ * @param capabilities What the model can do. Every field is `null` when it is merely unknown, so the
+ *   UI can warn instead of asserting something the app has not established.
  */
 public data class AiModel(
     public val id: String,
@@ -39,10 +41,15 @@ public data class AiModel(
     public val contextWindowTokens: Int? = null,
     public val isFree: Boolean = false,
     public val available: Boolean = true,
+    public val capabilities: ModelCapabilities = ModelCapabilities.UNKNOWN,
 ) {
     /** Context window formatted for display, e.g. `128K` or `1.0M`, or `null` when unknown. */
     public val contextWindowLabel: String?
         get() = contextWindowTokens?.let(::formatContextWindow)
+
+    /** Whether this model is known to accept images. */
+    public val acceptsImages: Boolean
+        get() = capabilities.acceptsImages
 }
 
 /**

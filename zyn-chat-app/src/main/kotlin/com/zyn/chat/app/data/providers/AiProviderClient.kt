@@ -16,6 +16,7 @@
 
 package com.zyn.chat.app.data.providers
 
+import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -82,7 +83,7 @@ public class AiProviderClient(
 
             // Only what the provider reported becomes a model; the catalog merely decorates it.
             return parsed.data
-                .map { remote -> ModelCatalog.enrich(provider.id, remote.id) }
+                .map { remote -> ModelCatalog.enrich(provider.id, remote.toReported()) }
                 .sortedBy { model -> model.slug.lowercase() }
         }
     }
@@ -113,11 +114,80 @@ private data class ModelsResponse(val data: List<RemoteModel> = emptyList())
 /**
  * One entry of the `/models` payload.
  *
+ * Only the fields the app understands are declared, and all of them are optional, because
+ * OpenAI-compatible endpoints range from returning nothing but an id (Ollama, llama.cpp) to
+ * returning full capability metadata (OpenRouter). Everything else in the payload is ignored.
+ *
  * @param id Provider-side model identifier, e.g. `gpt-4o-mini`.
+ * @param name Human-readable name, when the provider sends one.
+ * @param contextLength Context window, when the provider reports one.
+ * @param architecture What the model accepts, in OpenRouter's shape.
+ * @param supportedParameters Parameters the model supports; `tools` here is how tool use is detected.
+ * @param pricing Per-token pricing, used only to tell a free model from a paid one.
  */
-private data class RemoteModel(val id: String = "")
+private data class RemoteModel(
+    val id: String = "",
+    val name: String? = null,
+    @Json(name = "context_length") val contextLength: Int? = null,
+    val architecture: RemoteArchitecture? = null,
+    @Json(name = "supported_parameters") val supportedParameters: List<String>? = null,
+    val pricing: RemotePricing? = null,
+)
+
+/** OpenRouter-shaped description of what a model takes. */
+private data class RemoteArchitecture(
+    @Json(name = "input_modalities") val inputModalities: List<String>? = null,
+    val modality: String? = null,
+)
+
+/** OpenRouter-shaped pricing, as strings in dollars per token. */
+private data class RemotePricing(val prompt: String? = null)
+
+/** Turns a provider entry into the raw facts the catalog understands. */
+private fun RemoteModel.toReported(): ReportedModel = ReportedModel(
+    slug = id,
+    displayName = name,
+    capabilities = capabilities(),
+    isFree = pricing?.prompt?.let { prompt -> prompt.toDoubleOrNull() == FREE_PRICE },
+)
+
+/**
+ * Reads the capabilities a provider stated, without inferring any it did not.
+ *
+ * `input_modalities` is preferred, with `modality` (`text+image->text`) as the fallback. Tool support
+ * is taken from `supported_parameters` only when the provider sends that list at all — an endpoint
+ * that stays silent leaves it unknown rather than being recorded as incapable.
+ */
+private fun RemoteModel.capabilities(): ModelCapabilities = ModelCapabilities(
+    inputModalities = modalities(),
+    supportsTools = supportedParameters?.let { parameters -> parameters.any { it == TOOLS_PARAMETER } },
+    contextWindowTokens = contextLength,
+)
+
+/** What the model takes, or `null` when the provider did not say. */
+private fun RemoteModel.modalities(): Set<Modality>? {
+    architecture?.inputModalities?.let { reported ->
+        return reported.mapNotNull { value -> Modality.of(value) }.toSet()
+    }
+
+    // "text+image->text" describes inputs before the arrow and outputs after it.
+    return architecture?.modality
+        ?.substringBefore(MODALITY_ARROW)
+        ?.split(MODALITY_SEPARATOR)
+        ?.mapNotNull { value -> Modality.of(value) }
+        ?.toSet()
+}
 
 private const val MODELS_PATH = "/models"
+
+/** Parameter a provider lists when a model can call tools. */
+private const val TOOLS_PARAMETER = "tools"
+
+private const val MODALITY_ARROW = "->"
+private const val MODALITY_SEPARATOR = "+"
+
+/** Providers that price a model report its prompt price as `"0"`. */
+private const val FREE_PRICE = 0.0
 
 /** How much of an error body is kept for logs. */
 private const val DETAIL_LIMIT = 400
