@@ -16,6 +16,8 @@
 
 package com.zyn.chat.app.presentation.conversations
 
+import java.util.Calendar
+
 /**
  * UI state for the conversation list.
  */
@@ -26,8 +28,69 @@ public data class ConversationListState(
 
 /**
  * Data class representing a chat conversation.
+ *
+ * @param id Conversation id: a Stream channel id for channel-backed chats, or the stored
+ * conversation id for chats answered by the person's own provider.
+ * @param title Display title. A title the person set by hand always wins over a generated one.
+ * @param updatedAt When the conversation was last used, used to group the drawer. `null` when unknown.
+ * @param modelSlug Model the conversation was last answered with, used for its brand mark.
  */
 public data class Conversation(
     val id: String,
     val title: String,
+    val updatedAt: Long? = null,
+    val modelSlug: String? = null,
 )
+
+/** Time buckets the drawer groups recent conversations into, newest first. */
+public enum class RecentSection {
+    /** Started today. */
+    Today,
+
+    /** Started yesterday. */
+    Yesterday,
+
+    /** Started in the last seven days. */
+    PreviousSevenDays,
+
+    /** Older than a week, or with no known time. */
+    Older,
+}
+
+/**
+ * Places a conversation in a drawer bucket based on when it was last used.
+ *
+ * Buckets are calendar-day based, so "yesterday" means the previous calendar day rather than
+ * twenty-four hours ago.
+ *
+ * @param updatedAt When the conversation was last used, or `null` when unknown.
+ * @param now The current time, injected so this stays testable.
+ */
+public fun recentSectionOf(updatedAt: Long?, now: Long): RecentSection {
+    if (updatedAt == null || updatedAt <= 0L) return RecentSection.Older
+
+    val startOfToday = startOfDay(now)
+    return when {
+        updatedAt >= startOfToday -> RecentSection.Today
+        updatedAt >= startOfToday - DAY_MILLIS -> RecentSection.Yesterday
+        updatedAt >= startOfToday - WEEK_MILLIS -> RecentSection.PreviousSevenDays
+        else -> RecentSection.Older
+    }
+}
+
+/** Groups conversations into the drawer's buckets, preserving their order within each bucket. */
+public fun List<Conversation>.groupedByRecentSection(now: Long): List<Pair<RecentSection, List<Conversation>>> =
+    RecentSection.entries
+        .map { section -> section to filter { recentSectionOf(it.updatedAt, now) == section } }
+        .filter { (_, conversations) -> conversations.isNotEmpty() }
+
+private fun startOfDay(millis: Long): Long = Calendar.getInstance().apply {
+    timeInMillis = millis
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
+private const val WEEK_MILLIS = 7L * DAY_MILLIS

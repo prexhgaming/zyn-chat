@@ -82,7 +82,9 @@ public fun AiChatApp(
     modifier: Modifier = Modifier,
 ) {
     val conversationListViewModel = viewModel<ConversationListViewModel>(
-        factory = ConversationListViewModelFactory(),
+        factory = ConversationListViewModelFactory(
+            conversations = chatDependencies.conversationRepository,
+        ),
     )
     val conversationListState by conversationListViewModel.uiState.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -174,6 +176,14 @@ public fun AiChatApp(
                     onConversationClick = { conversationId ->
                         selectedConversationId = conversationId
                         scope.launch { drawerState.close() }
+                    },
+                    onRenameConversation = { conversationId, title ->
+                        conversationListViewModel.rename(conversationId, title)
+                    },
+                    onDeleteConversation = { conversationId ->
+                        conversationListViewModel.delete(conversationId)
+                        // Deleting the chat currently on screen returns to a fresh one.
+                        if (conversationId == selectedConversationId) startNewChat()
                     },
                     onUserInfoClick = {
                         // Profile is presentation only in this phase.

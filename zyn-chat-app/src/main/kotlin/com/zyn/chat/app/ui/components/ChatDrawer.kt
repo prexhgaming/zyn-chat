@@ -39,6 +39,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
 import com.zyn.chat.app.presentation.conversations.Conversation
+import com.zyn.chat.app.presentation.conversations.RecentSection
+import com.zyn.chat.app.presentation.conversations.groupedByRecentSection
 import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.RowShape
 import io.getstream.chat.android.models.User
@@ -64,6 +70,8 @@ import io.getstream.chat.android.models.User
  * @param selectedConversationId The conversation currently open, if any.
  * @param onNewChatClick Invoked when "New chat" is tapped.
  * @param onConversationClick Invoked with the id of a tapped conversation.
+ * @param onRenameConversation Invoked with a conversation id and its new title.
+ * @param onDeleteConversation Invoked with the id of a conversation to delete.
  * @param onUserInfoClick Invoked when the profile row is tapped.
  * @param onProvidersClick Invoked when "Providers" is tapped.
  * @param onRoutingClick Invoked when "Routing" is tapped.
@@ -77,12 +85,17 @@ fun ChatDrawer(
     selectedConversationId: String?,
     onNewChatClick: () -> Unit,
     onConversationClick: (conversationId: String) -> Unit,
+    onRenameConversation: (conversationId: String, title: String) -> Unit,
+    onDeleteConversation: (conversationId: String) -> Unit,
     onUserInfoClick: () -> Unit,
     onProvidersClick: () -> Unit,
     onRoutingClick: () -> Unit,
     onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var renameTarget by remember { mutableStateOf<Conversation?>(null) }
+    var deleteTarget by remember { mutableStateOf<Conversation?>(null) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -123,19 +136,35 @@ fun ChatDrawer(
             )
             Spacer(modifier = Modifier.weight(1f))
         } else {
+            val sections = remember(conversations) {
+                conversations.groupedByRecentSection(System.currentTimeMillis())
+            }
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
             ) {
-                items(
-                    key = Conversation::id,
-                    items = conversations,
-                ) { conversation ->
-                    DrawerConversationItem(
-                        title = conversation.title,
-                        selected = conversation.id == selectedConversationId,
-                        onClick = { onConversationClick(conversation.id) },
-                    )
+                sections.forEach { (section, sectionConversations) ->
+                    item(key = "section-$section") {
+                        DrawerSectionLabel(
+                            text = section.label(),
+                            modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 2.dp),
+                        )
+                    }
+
+                    items(
+                        key = Conversation::id,
+                        items = sectionConversations,
+                    ) { conversation ->
+                        DrawerConversationItem(
+                            title = conversation.title,
+                            selected = conversation.id == selectedConversationId,
+                            modelSlug = conversation.modelSlug,
+                            onClick = { onConversationClick(conversation.id) },
+                            onRename = { renameTarget = conversation },
+                            onDelete = { deleteTarget = conversation },
+                        )
+                    }
                 }
             }
         }
@@ -144,6 +173,28 @@ fun ChatDrawer(
             user = user,
             onNewChatClick = onNewChatClick,
             onUserInfoClick = onUserInfoClick,
+        )
+    }
+
+    renameTarget?.let { target ->
+        RenameConversationDialog(
+            initialTitle = target.title,
+            onConfirm = { title ->
+                onRenameConversation(target.id, title)
+                renameTarget = null
+            },
+            onDismiss = { renameTarget = null },
+        )
+    }
+
+    deleteTarget?.let { target ->
+        DeleteConversationDialog(
+            title = target.title,
+            onConfirm = {
+                onDeleteConversation(target.id)
+                deleteTarget = null
+            },
+            onDismiss = { deleteTarget = null },
         )
     }
 }
@@ -212,6 +263,17 @@ private fun DrawerSectionLabel(
         modifier = modifier,
     )
 }
+
+/** Drawer heading for a group of recent conversations. */
+@Composable
+private fun RecentSection.label(): String = stringResource(
+    when (this) {
+        RecentSection.Today -> R.string.zyn_drawer_today
+        RecentSection.Yesterday -> R.string.zyn_drawer_yesterday
+        RecentSection.PreviousSevenDays -> R.string.zyn_drawer_previous_7_days
+        RecentSection.Older -> R.string.zyn_drawer_older
+    },
+)
 
 @Composable
 private fun DrawerFooter(

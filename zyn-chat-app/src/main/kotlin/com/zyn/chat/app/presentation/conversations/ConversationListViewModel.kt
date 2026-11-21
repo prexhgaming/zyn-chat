@@ -18,6 +18,9 @@ package com.zyn.chat.app.presentation.conversations
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zyn.chat.app.data.chat.TitleSource
+import com.zyn.chat.app.domain.chat.ConversationMeta
+import com.zyn.chat.app.domain.chat.ConversationRepository
 import io.getstream.chat.android.client.ChatClient
 import io.getstream.chat.android.client.api.models.QueryChannelsRequest
 import io.getstream.chat.android.client.api.state.queryChannelsAsState
@@ -29,33 +32,79 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * ViewModel for managing conversation list and selection.
- * Handles loading conversations from Stream Chat and managing conversation selection.
+ * ViewModel for the conversation list shown in the drawer.
  *
- * @param chatClient The Stream Chat client instance
+ * The list is the union of two sources: channels from Stream, and the conversations this device
+ * answers with the person's own provider. A stored title or model always wins for a conversation,
+ * which is what makes a rename stick.
+ *
+ * @param chatClient The Stream Chat client instance.
+ * @param conversations The store of locally answered conversations.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 public class ConversationListViewModel(
     private val chatClient: ChatClient,
+    private val conversations: ConversationRepository,
 ) : ViewModel() {
 
     private val logger by taggedLogger()
 
+    private val channelConversations = MutableStateFlow<List<Conversation>>(emptyList())
+    private val storedConversations = MutableStateFlow<List<ConversationMeta>>(emptyList())
+
     private val _uiState = MutableStateFlow(ConversationListState())
-    val uiState: StateFlow<ConversationListState> = _uiState.asStateFlow()
+    public val uiState: StateFlow<ConversationListState> = _uiState.asStateFlow()
 
     init {
-        loadConversations()
+        observeChannels()
+        observeStored()
+        observeMerged()
     }
 
-    private fun loadConversations() {
+    /**
+     * Renames a conversation.
+     *
+     * The stored title is the drawer's source of truth, and a manual title is never replaced by an
+     * automatic one, so renaming a channel-backed chat sticks too.
+     *
+     * @param conversationId The conversation to rename.
+     * @param title The new title; blank input is ignored.
+     */
+    public fun rename(conversationId: String, title: String) {
+        viewModelScope.launch {
+            conversations.setTitle(conversationId, title, TitleSource.Manual)
+        }
+    }
+
+    /**
+     * Deletes a conversation: its stored history, and its Stream channel when it has one.
+     *
+     * @param conversationId The conversation to delete.
+     */
+    public fun delete(conversationId: String) {
+        viewModelScope.launch {
+            conversations.delete(conversationId)
+
+            if (conversationId.contains(CID_SEPARATOR)) {
+                chatClient.channel(conversationId).delete().enqueue { result ->
+                    result.onError { error ->
+                        logger.e { "Failed to delete channel $conversationId: ${error.message}" }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeChannels() {
         val currentUserId = chatClient.getCurrentUser()?.id ?: run {
             logger.d { "No current user, cannot load channels" }
             return
@@ -71,7 +120,7 @@ public class ConversationListViewModel(
                 ),
             ),
             querySort = QuerySortByField.descByName("last_updated"),
-            limit = 30,
+            limit = CHANNEL_LIMIT,
             messageLimit = 1,
         )
 
@@ -80,17 +129,61 @@ public class ConversationListViewModel(
             .flatMapLatest { queryChannelsState -> queryChannelsState.channels.filterNotNull() }
             .onEach { channels ->
                 logger.d { "Loaded ${channels.size} channels from Stream Chat" }
+                channelConversations.value = channels.map(Channel::toConversation)
+            }
+            .launchIn(viewModelScope)
+    }
 
-                val conversations = channels.map(Channel::toConversation)
+    private fun observeStored() {
+        conversations.revision
+            .onEach { storedConversations.value = conversations.metadata() }
+            .launchIn(viewModelScope)
+    }
 
+    private fun observeMerged() {
+        combine(channelConversations, storedConversations, ::merge)
+            .onEach { merged ->
                 _uiState.update { state ->
-                    state.copy(
-                        conversations = conversations,
-                        isLoading = false,
-                    )
+                    state.copy(conversations = merged, isLoading = false)
                 }
             }
             .launchIn(viewModelScope)
+    }
+
+    /** Channels plus locally answered conversations, with stored titles taking precedence. */
+    private fun merge(
+        channels: List<Conversation>,
+        stored: List<ConversationMeta>,
+    ): List<Conversation> {
+        val overrides = stored.associateBy(ConversationMeta::id)
+
+        val fromChannels = channels.map { channel ->
+            val storedMeta = overrides[channel.id]
+            channel.copy(
+                title = storedMeta?.title?.takeIf(String::isNotBlank) ?: channel.title,
+                updatedAt = channel.updatedAt ?: storedMeta?.updatedAt,
+                modelSlug = storedMeta?.modelId?.substringAfterLast(CID_SEPARATOR),
+            )
+        }
+
+        val channelIds = fromChannels.mapTo(mutableSetOf(), Conversation::id)
+        val localOnly = stored
+            .filterNot { meta -> meta.id in channelIds }
+            .map { meta ->
+                Conversation(
+                    id = meta.id,
+                    title = meta.title,
+                    updatedAt = meta.updatedAt,
+                    modelSlug = meta.modelId?.substringAfterLast(CID_SEPARATOR),
+                )
+            }
+
+        return (fromChannels + localOnly).sortedByDescending { conversation -> conversation.updatedAt ?: 0L }
+    }
+
+    private companion object {
+        const val CHANNEL_LIMIT = 30
+        const val CID_SEPARATOR = ':'
     }
 }
 
@@ -100,5 +193,6 @@ private fun Channel.toConversation(): Conversation {
     return Conversation(
         id = cid,
         title = title,
+        updatedAt = lastUpdated?.time,
     )
 }

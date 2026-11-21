@@ -18,6 +18,7 @@ package com.zyn.chat.app.di
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.zyn.chat.app.domain.chat.ConversationRepository
 import com.zyn.chat.app.presentation.conversations.ConversationListViewModel
 import io.getstream.chat.android.client.ChatClient
 
@@ -25,9 +26,11 @@ import io.getstream.chat.android.client.ChatClient
  * Factory for creating ConversationListViewModel with dependencies.
  * This factory injects required dependencies (ChatClient) into ConversationListViewModel.
  *
+ * @param conversations The store of locally answered conversations.
  * @param chatClient The Stream Chat client instance
  */
 public class ConversationListViewModelFactory(
+    private val conversations: ConversationRepository,
     private val chatClient: ChatClient = ChatClient.instance(),
 ) : ViewModelProvider.Factory {
     /**
@@ -44,6 +47,7 @@ public class ConversationListViewModelFactory(
         }
         return ConversationListViewModel(
             chatClient = chatClient,
+            conversations = conversations,
         ) as T
     }
 }

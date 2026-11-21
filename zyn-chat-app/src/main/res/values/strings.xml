@@ -121,4 +121,20 @@
     <string name="zyn_provider_error_no_connection">Can\'t reach the provider. Check your connection.</string>
     <string name="zyn_provider_error_bad_response">The provider sent a response Zyn Chat couldn\'t read.</string>
     <string name="zyn_provider_error_unknown">Something went wrong with the provider.</string>
+
+    <!-- Drawer conversation groups. -->
+    <string name="zyn_drawer_today">Today</string>
+    <string name="zyn_drawer_yesterday">Yesterday</string>
+    <string name="zyn_drawer_previous_7_days">Previous 7 days</string>
+    <string name="zyn_drawer_older">Older</string>
+
+    <!-- Conversation row menu and its dialogs. -->
+    <string name="zyn_conversation_rename">Rename</string>
+    <string name="zyn_conversation_rename_hint">Conversation name</string>
+    <string name="zyn_conversation_rename_confirm">Save</string>
+    <string name="zyn_conversation_rename_cancel">Cancel</string>
+    <string name="zyn_conversation_delete">Delete</string>
+    <string name="zyn_conversation_delete_title">Delete chat?</string>
+    <string name="zyn_conversation_delete_message">\"%1$s\" and everything it asked will be deleted from this device.</string>
+    <string name="zyn_conversation_delete_confirm">Delete</string>
 </resources>
