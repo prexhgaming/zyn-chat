@@ -23,6 +23,7 @@ import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.data.providers.ProviderRepository
 import com.zyn.chat.app.data.repository.ChatAiRepository
 import com.zyn.chat.app.domain.chat.ChatEngine
+import com.zyn.chat.app.domain.chat.ConversationRepository
 import com.zyn.chat.app.presentation.chat.ChatViewModel
 import io.getstream.chat.android.client.ChatClient
 
@@ -33,6 +34,7 @@ import io.getstream.chat.android.client.ChatClient
  * @param providerRepository Where the configured provider and model selection live.
  * @param apiKeyStore Encrypted key storage for bring-your-own-key answers.
  * @param chatEngine Engine that talks to the person's provider.
+ * @param conversations The only source of a conversation's stored history and its title.
  * @param appContext Application context used to resolve picker URIs into attachments.
  * @param chatClient The Stream Chat client instance. Defaults to [ChatClient.instance] if not provided.
  * @param conversationId The optional channel ID (CID) for an existing conversation.
@@ -43,6 +45,7 @@ class ChatViewModelFactory(
     private val providerRepository: ProviderRepository,
     private val apiKeyStore: ApiKeyStore,
     private val chatEngine: ChatEngine,
+    private val conversations: ConversationRepository,
     private val appContext: Context,
     private val chatClient: ChatClient = ChatClient.instance(),
     private val conversationId: String?,
@@ -66,6 +69,7 @@ class ChatViewModelFactory(
             providerRepository = providerRepository,
             apiKeyStore = apiKeyStore,
             chatEngine = chatEngine,
+            conversations = conversations,
             appContext = appContext,
             conversationId = conversationId,
         ) as T

@@ -28,6 +28,8 @@ import com.zyn.chat.app.domain.chat.ChatChunk
 import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.domain.chat.ChatRole
 import com.zyn.chat.app.domain.chat.ChatTurn
+import com.zyn.chat.app.domain.chat.ConversationRepository
+import com.zyn.chat.app.domain.chat.UNSAVED_CONVERSATION_ID
 import com.zyn.chat.app.domain.isFromAi
 import com.zyn.chat.compose.ui.component.MessageData
 import com.zyn.chat.ondevice.AIConversationTurn
@@ -83,6 +85,7 @@ internal class ChatViewModel(
     providerRepository: ProviderRepository,
     apiKeyStore: ApiKeyStore,
     chatEngine: ChatEngine,
+    private val conversations: ConversationRepository,
     appContext: Context,
     conversationId: String?,
 ) : ViewModel() {
@@ -321,11 +324,16 @@ internal class ChatViewModel(
      */
     private suspend fun answerWithProvider(text: String, selection: ProviderSelection) {
         val answerId = UUID.randomUUID().toString()
+        val conversationId = cid.value ?: UNSAVED_CONVERSATION_ID
 
-        // Built before the question is added, so it appears in the request exactly once.
-        val history = _uiState.value.messages
-            .reversed()
-            .map { message ->
+        // Built before the question is added, so it appears in the request exactly once. The stored
+        // turns of this conversation win; the screen's messages are the fallback for conversations
+        // whose history still comes from Stream.
+        val storedTurns = conversations.history(conversationId)
+        val history = (if (storedTurns.isNotEmpty()) {
+            storedTurns
+        } else {
+            _uiState.value.messages.reversed().map { message ->
                 ChatTurn(
                     role = when (message.role) {
                         ChatUiState.Message.Role.Assistant -> ChatRole.Assistant
@@ -333,7 +341,8 @@ internal class ChatViewModel(
                     },
                     content = message.content,
                 )
-            } + ChatTurn(role = ChatRole.User, content = text)
+            }
+        }) + ChatTurn(role = ChatRole.User, content = text)
 
         localMessages.update { listOf(localMessage(ChatUiState.Message.Role.User, text)) + it }
 
@@ -341,7 +350,7 @@ internal class ChatViewModel(
         var finalState: ChatUiState.AssistantState = ChatUiState.AssistantState.Idle
 
         try {
-            providerAnswers.stream(selection, cid.value, history).collect { chunk ->
+            providerAnswers.stream(selection, conversationId, history).collect { chunk ->
                 if (chunk is ChatChunk.Text) {
                     answer.append(chunk.delta)
                     val message = localMessage(
@@ -368,6 +377,18 @@ internal class ChatViewModel(
                 messages.map { if (it.id == answerId) it.copy(isGenerating = false) else it }
             }
             _uiState.update { it.copy(assistantState = finalState) }
+        }
+
+        if (answer.isNotBlank()) {
+            // Stored per conversation, and this is also where the conversation gets its name: a short
+            // title derived on the device rather than the first message repeated.
+            conversations.record(
+                conversationId = conversationId,
+                question = text,
+                answer = answer.toString(),
+                providerId = selection.provider.id,
+                modelId = selection.model.id,
+            )
         }
     }
 

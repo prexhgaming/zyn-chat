@@ -86,6 +86,7 @@ fun ChatScreen(
             providerRepository = chatDependencies.providerRepository,
             apiKeyStore = chatDependencies.apiKeyStore,
             chatEngine = chatDependencies.chatEngine,
+            conversations = chatDependencies.conversationRepository,
             appContext = appContext,
             conversationId = conversationId,
         ),

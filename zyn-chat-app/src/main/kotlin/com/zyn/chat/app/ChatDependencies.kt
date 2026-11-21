@@ -19,6 +19,7 @@ package com.zyn.chat.app
 import android.content.Context
 import com.squareup.moshi.Moshi
 import com.zyn.chat.app.data.api.ChatAiApi
+import com.zyn.chat.app.data.chat.ConversationStore
 import com.zyn.chat.app.data.chat.ProviderChatEngine
 import com.zyn.chat.app.data.providers.AiProviderClient
 import com.zyn.chat.app.data.providers.ApiKeyStore
@@ -27,6 +28,7 @@ import com.zyn.chat.app.data.repository.ChatAiRepository
 import com.zyn.chat.app.data.repository.ChatAiService
 import com.zyn.chat.app.di.NetworkModule
 import com.zyn.chat.app.domain.chat.ChatEngine
+import com.zyn.chat.app.domain.chat.ConversationRepository
 import okhttp3.OkHttpClient
 
 /**
@@ -58,6 +60,9 @@ public class ChatDependencies(
     /** Streams answers from the person's own provider. Stateless, safe to share. */
     public val chatEngine: ChatEngine
 
+    /** The only place a conversation's stored turns and title are read or written. */
+    public val conversationRepository: ConversationRepository
+
     private val moshi: Moshi
     private val providerHttpClient: OkHttpClient
 
@@ -87,5 +92,6 @@ public class ChatDependencies(
             httpClient = providerHttpClient,
             moshi = moshi,
         )
+        conversationRepository = ConversationRepository(ConversationStore(context))
     }
 }
