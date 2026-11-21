@@ -56,7 +56,7 @@ public data class ConversationMeta(
  * or written into, another chat's history. Callers observe [revision] to know that titles or
  * conversations changed.
  */
-public class ConversationRepository(
+public class ConversationRepository internal constructor(
     private val store: ConversationStore,
 ) {
 

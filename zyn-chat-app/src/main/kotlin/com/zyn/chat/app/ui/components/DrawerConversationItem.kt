@@ -78,7 +78,7 @@ fun DrawerConversationItem(
         ) {
             BrandMark(
                 label = title,
-                mark = markOf(ModelBrands.of(null, modelSlug.orEmpty())),
+                mark = markOf(ModelBrands.of(providerId = "", modelSlug.orEmpty())),
                 size = 22.dp,
             )
 

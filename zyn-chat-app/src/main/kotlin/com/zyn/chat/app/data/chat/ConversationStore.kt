@@ -114,7 +114,9 @@ internal class ConversationStore(
         directory.listFiles()
             .orEmpty()
             .filter { file -> file.extension == JSON_EXTENSION }
-            .mapNotNullTo(cache) { file -> read(file)?.let { conversation -> conversation.id to conversation } }
+            .forEach { file ->
+                read(file)?.let { conversation -> cache[conversation.id] = conversation }
+            }
         loaded = true
     }
 
