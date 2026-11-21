@@ -51,9 +51,10 @@ public enum class ModelBrand(public val displayName: String) {
  * rule covers OpenAI-compatible slugs (`gpt-4o`), OpenRouter's `vendor/model` form
  * (`openai/gpt-4o`) and Vertex's `publishers/google/models/gemini-2.0-flash` alike.
  *
- * Matching then runs most-specific first — a prefix rule, then a substring rule, then the provider's
- * own family — so a distinguishing word always beats a coincidental one: `llama-3.1-nemotron` is
- * NVIDIA's model even though its name contains `llama`.
+ * Matching is most-specific first: a distinguishing word anywhere in the name, then a leading
+ * prefix, then the provider's own family. The word check has to come first, otherwise a compound name
+ * is claimed by whichever family its prefix happens to match — `llama-3.1-nemotron` starts with
+ * `llama` but is NVIDIA's model, not Meta's.
  */
 public object ModelBrands {
 
@@ -65,8 +66,8 @@ public object ModelBrands {
      */
     public fun of(providerId: String, slug: String): ModelBrand {
         val name = slug.modelSegment()
-        return BRAND_PREFIXES.firstOrNull { (prefix, _) -> name.startsWith(prefix) }?.second
-            ?: BRAND_SUBSTRINGS.firstOrNull { (needle, _) -> needle in name }?.second
+        return BRAND_SUBSTRINGS.firstOrNull { (needle, _) -> needle in name }?.second
+            ?: BRAND_PREFIXES.firstOrNull { (prefix, _) -> name.startsWith(prefix) }?.second
             ?: PROVIDER_BRANDS[providerId.lowercase()]
             ?: ModelBrand.Generic
     }
