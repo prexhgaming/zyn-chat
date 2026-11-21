@@ -19,6 +19,22 @@ Stream license headers stay in place (see `LICENSE`).
 - `zyn-chat-app` (`com.zyn.chat.app`) — application module: chat UI, ViewModels, Retrofit layer,
   Stream Chat client wiring.
 
+## UI layer (`zyn-chat-app`)
+
+- Design tokens live in `ui/theme`: `Color.kt` (palettes), `Typography.kt` (type scale, also used for
+  Markdown heading mapping), `Shape.kt` (radii). Change colours/type there, not inline.
+- Icons are `ImageVector`s in `ui/icons/ZynIcons.kt` (shared 24x24 viewport, 1.7dp stroke), not
+  drawable resources. The app's older `res/drawable/ic_*` icons are the Material-Symbols ones the
+  top bar still uses.
+- The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `ModelSelector.kt`.
+  The library's `ChatComposer` is intentionally left untouched, so the `zyn-chat-compose` Paparazzi
+  snapshots keep matching — don't restyle library components to change the app's look.
+- Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt` and `DrawerConversationItem.kt`.
+- User-facing text goes through `res/values/strings.xml` (names prefixed `zyn_`).
+- **Presentation only for now**: the Providers/Routing drawer entries, the drawer search action and
+  the composer's model selector render and report taps, but have no screens or wiring behind them.
+  `ui/chat/ChatModel.kt` is a local model list, not a provider integration.
+
 ## Commands
 
 ```bash
@@ -59,5 +75,6 @@ The keystore is **never committed** (`*.jks`, `signing.properties`, `.secrets/` 
 
 ## Scope
 
-Phase 1 is project setup only. BYOK (bring-your-own-key) key management, AI provider integrations
-and chat customization are **not implemented yet** — do not assume their design.
+Phase 1 was project setup; the current phase is UI/UX redesign. BYOK (bring-your-own-key) key
+management, AI provider integrations and request routing are **not implemented yet** — the drawer
+entries and model selector for them are visual only. Do not assume their design.
