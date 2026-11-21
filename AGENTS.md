@@ -45,7 +45,14 @@ Stream license headers stay in place (see `LICENSE`).
 - Model picker: `ui/chat/ModelPickerSheet.kt` (Material `ModalBottomSheet`, drag handle, provider
   tabs, per-model rows, empty state). The drawer is a `ModalNavigationDrawer` with a partial-width
   sheet, animated scrim and an edge-swipe strip in `ui/AiChatApp.kt`.
-- Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt` and `DrawerConversationItem.kt`.
+- Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt`, `DrawerConversationItem.kt` and
+  `ConversationDialogs.kt`. Recents are the union of Stream channels and the device's stored
+  conversations, bucketed into Today / Yesterday / Previous 7 days / Older by `updatedAt`
+  (`RecentSection` + `groupedByRecentSection` in `ConversationListState.kt`). Long-pressing a row
+  offers Rename and Delete; **a stored title always wins over a channel name**, which is what makes a
+  rename stick, and a `TitleSource.Manual` title is never replaced automatically.
+- Every new chat gets its own storage id (`newConversationId()`); the id is never shared or reused
+  between chats, and `ChatViewModel` stores under `cid ?: localConversationId`.
 - User-facing text goes through `res/values/strings.xml` (names prefixed `zyn_`).
 - Provider and model state: `data/providers/` — `ProviderCatalog` (known OpenAI-compatible endpoints),
   `ProviderStorage` (JSON in SharedPreferences), `ApiKeyStore` (Android Keystore, AES-GCM),
