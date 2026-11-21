@@ -100,6 +100,10 @@ internal class ChatViewModel(
     // Questions answered on the device and their answers, newest first. They are not sent to Stream.
     private val localMessages = MutableStateFlow<List<ChatUiState.Message>>(emptyList())
 
+    // Messages that came back from a Stream channel, newest first. Stays empty when there is no
+    // channel, which is the case for every chat answered by the person's own provider.
+    private val channelMessages = MutableStateFlow<List<ChatUiState.Message>>(emptyList())
+
     private val logger by taggedLogger()
 
     /**
@@ -138,8 +142,16 @@ internal class ChatViewModel(
     private var pendingMessage: StreamMessage? = null
 
     init {
+        // The message list is assembled from both sources unconditionally. It used to be built
+        // inside the channel chain below, so with no Stream channel — every bring-your-own-key
+        // chat — a sent message had nowhere to appear and the screen stayed empty.
+        combine(channelMessages, localMessages) { fromChannel, local -> local + fromChannel }
+            .onEach { messages ->
+                _uiState.update { state -> state.copy(messages = messages, isLoading = false) }
+            }
+            .launchIn(viewModelScope)
+
         cid.filterNotNull()
-            .onEach { _uiState.update { state -> state.copy(isLoading = state.messages.isEmpty()) } }
             // Start the AI agent
             .onEach(::startAIAgentForChannel)
             // Subscribe to channel events
@@ -158,18 +170,15 @@ internal class ChatViewModel(
                     channelState.toChannel()
                 }
             }
-            .combine(localMessages) { channel, local -> channel to local }
-            .onEach { (channel, local) ->
-                val title = channel.name.takeIf(String::isNotBlank) ?: "New Chat"
-
-                val messages = channel.messages
+            .onEach { channel ->
+                channelMessages.value = channel.messages
                     .mapNotNull { message -> message.toChatMessage(currentUserId.value) }
                     .reversed()
 
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
-                        title = title,
+                        title = channel.name.takeIf(String::isNotBlank) ?: "New Chat",
                         actions = buildList {
                             if (cid.value != null) {
                                 add(ChatUiState.Action.NewChat)
@@ -178,7 +187,6 @@ internal class ChatViewModel(
                                 }
                             }
                         },
-                        messages = local + messages,
                     )
                 }
             }
