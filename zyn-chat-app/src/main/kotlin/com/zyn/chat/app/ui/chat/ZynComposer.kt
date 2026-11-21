@@ -1,5 +1,24 @@
+/*
+ * Copyright (c) 2014-2026 Stream.io Inc. All rights reserved.
+ *
+ * Licensed under the Stream License;
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   https://github.com/GetStream/stream-chat-android-ai/blob/main/LICENSE
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.zyn.chat.app.ui.chat
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,32 +51,37 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.zyn.chat.app.R
+import com.zyn.chat.app.ui.chat.speech.SpeechErrorReason
+import com.zyn.chat.app.ui.chat.speech.rememberSpeechInput
 import com.zyn.chat.app.ui.theme.ComposerShape
 import com.zyn.chat.compose.ui.component.MessageData
-import com.zyn.chat.compose.ui.component.SpeechToTextButton
-import com.zyn.chat.compose.ui.component.rememberSpeechToTextButtonState
 import kotlinx.coroutines.launch
 
 /**
  * Message composer.
  *
  * A rounded capsule that holds the message field on top and a control row below: the attachment
- * picker, the model selector, dictation, and the send (or stop) button.
+ * picker, the model pill, and the single trailing button that sends, dictates or stops.
  *
  * Photos and documents are staged as attachments on [MessageData], exactly like the chat composer
  * in `zyn-chat-compose`, so they flow through the existing send path untouched.
  *
+ * Dictation is driven by [rememberSpeechInput]: recognised speech is written into the field, where
+ * it stays editable, and nothing is ever sent by the recogniser finishing. While dictation runs the
+ * field is read-only so partial results can replace the dictated segment without losing typed text.
+ *
  * @param onSendClick Invoked with the composed message when the person sends it.
  * @param onStopClick Invoked while the assistant is answering, to stop it.
  * @param isGenerating Whether the assistant is currently generating a response.
- * @param selectedModel Model shown in the selector pill.
- * @param models Models offered by the selector.
- * @param onModelSelected Invoked with the model the person picked.
+ * @param modelName Name of the active model, or `null` when none is selected.
+ * @param onModelClick Invoked when the model pill is tapped, to open the model picker.
  * @param modifier Applied to the composer.
  */
 @Composable
@@ -65,21 +89,24 @@ fun ZynComposer(
     onSendClick: (MessageData) -> Unit,
     onStopClick: () -> Unit,
     isGenerating: Boolean,
+    modelName: String?,
+    onModelClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selectedModel: ChatModel = DefaultModel,
-    models: List<ChatModel> = AvailableModels,
-    onModelSelected: (ChatModel) -> Unit = {},
 ) {
     var messageData by rememberSaveable(stateSaver = MessageData.Saver) {
         mutableStateOf(MessageData())
     }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val microphoneDeniedMessage = stringResource(R.string.zyn_composer_mic_permission)
+    val speechInput = rememberSpeechInput()
+
+    val permissionMessage = stringResource(R.string.zyn_composer_mic_permission)
+    val speechErrors = speechErrorMessages()
 
     val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(),
+        contract = ActivityResultContracts.PickMultipleVisualMedia(MAX_ATTACHMENTS),
     ) { uris ->
         messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
     }
@@ -90,24 +117,58 @@ fun ZynComposer(
         messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
     }
 
-    var dictationBase by remember { mutableStateOf("") }
-    val speechToTextState = rememberSpeechToTextButtonState(
-        onPartialResult = { recognized ->
-            messageData = messageData.copy(text = mergeDictation(dictationBase, recognized))
-        },
-        onFinalResult = { recognized ->
-            messageData = messageData.copy(text = mergeDictation(dictationBase, recognized))
-        },
-    )
+    // Set when the person grants the microphone permission, so dictation starts without a second tap.
+    var dictationRequested by remember { mutableStateOf(false) }
 
-    LaunchedEffect(speechToTextState.isRecording()) {
-        if (speechToTextState.isRecording()) dictationBase = messageData.text
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            dictationRequested = true
+        } else {
+            scope.launch { snackbarHostState.showSnackbar(permissionMessage) }
+        }
     }
 
-    val canSend = messageData.text.isNotBlank() && !isGenerating
+    val beginDictation: () -> Unit = {
+        speechInput.start(
+            baseText = messageData.text,
+            onText = { recognized -> messageData = messageData.copy(text = recognized) },
+            onError = { reason ->
+                val message = speechErrors[reason] ?: speechErrors[SpeechErrorReason.Unknown]
+                if (message != null) {
+                    scope.launch { snackbarHostState.showSnackbar(message) }
+                }
+            },
+        )
+    }
+
+    LaunchedEffect(dictationRequested) {
+        if (dictationRequested) {
+            dictationRequested = false
+            beginDictation()
+        }
+    }
+
+    // Back cancels dictation instead of leaving the screen while the microphone is live.
+    BackHandler(enabled = speechInput.isActive) {
+        speechInput.cancel()
+    }
+
+    val startDictation: () -> Unit = {
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (granted) beginDictation() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    val canSend = messageData.text.isNotBlank() && !isGenerating && !speechInput.isActive
 
     val sendMessage = {
         if (canSend) {
+            if (speechInput.isActive) speechInput.cancel()
             val message = messageData
             messageData = MessageData()
             keyboardController?.hide()
@@ -143,7 +204,7 @@ fun ZynComposer(
             Column {
                 ComposerTextField(
                     text = messageData.text,
-                    enabled = !isGenerating && !speechToTextState.isRecording(),
+                    enabled = !isGenerating && !speechInput.isActive,
                     onTextChange = { messageData = messageData.copy(text = it) },
                     onSend = sendMessage,
                 )
@@ -161,7 +222,6 @@ fun ZynComposer(
                             photoPicker.launch(
                                 PickVisualMediaRequest(
                                     mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
-                                    maxItems = MAX_ATTACHMENTS,
                                 ),
                             )
                         },
@@ -169,28 +229,21 @@ fun ZynComposer(
                     )
 
                     ModelSelector(
-                        selectedModel = selectedModel,
-                        models = models,
-                        onModelSelected = onModelSelected,
+                        modelName = modelName,
+                        onClick = onModelClick,
                         enabled = !isGenerating,
                     )
 
                     Box(modifier = Modifier.weight(1f))
 
-                    if (!isGenerating && messageData.text.isBlank()) {
-                        SpeechToTextButton(
-                            state = speechToTextState,
-                            onPermissionDenied = {
-                                scope.launch { snackbarHostState.showSnackbar(microphoneDeniedMessage) }
-                            },
-                        )
-                    }
-
-                    SendButton(
+                    SmartSendButton(
+                        hasText = messageData.text.isNotBlank(),
                         isGenerating = isGenerating,
-                        enabled = canSend || isGenerating,
-                        onSendClick = sendMessage,
-                        onStopClick = onStopClick,
+                        speechState = speechInput.state,
+                        onSend = sendMessage,
+                        onStopGenerating = onStopClick,
+                        onStartSpeech = startDictation,
+                        onStopSpeech = { speechInput.stop() },
                     )
                 }
             }
@@ -237,8 +290,17 @@ private fun ComposerTextField(
     }
 }
 
+/** User-facing copy for every dictation failure. */
+@Composable
+private fun speechErrorMessages(): Map<SpeechErrorReason, String> = mapOf(
+    SpeechErrorReason.PermissionDenied to stringResource(R.string.zyn_speech_error_permission),
+    SpeechErrorReason.NoMatch to stringResource(R.string.zyn_speech_error_no_match),
+    SpeechErrorReason.RecognizerBusy to stringResource(R.string.zyn_speech_error_busy),
+    SpeechErrorReason.Network to stringResource(R.string.zyn_speech_error_network),
+    SpeechErrorReason.Audio to stringResource(R.string.zyn_speech_error_audio),
+    SpeechErrorReason.Unavailable to stringResource(R.string.zyn_speech_error_unavailable),
+    SpeechErrorReason.Unknown to stringResource(R.string.zyn_speech_error_unknown),
+)
+
 private const val MAX_ATTACHMENTS = 5
 private val DOCUMENT_MIME_TYPES = arrayOf("*/*")
-
-private fun mergeDictation(base: String, recognized: String): String =
-    if (base.isBlank()) recognized else "${base.trim()} $recognized"

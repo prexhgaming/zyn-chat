@@ -29,6 +29,18 @@ public object ZynIcons {
         segment(5.6f, 12f, 18.4f, 12f)
     }
 
+    /**
+     * Microphone. Used by the smart composer button when there is nothing to send, and while
+     * dictation is running.
+     */
+    public val Mic: ImageVector = outline("ZynMic") {
+        roundRect(9.2f, 3.2f, 5.6f, 10.2f, 2.8f)
+        moveTo(5.6f, 11.4f)
+        curveTo(5.6f, 15.1f, 8.5f, 17.8f, 12f, 17.8f)
+        curveTo(15.5f, 17.8f, 18.4f, 15.1f, 18.4f, 11.4f)
+        segment(12f, 17.8f, 12f, 20.6f)
+    }
+
     /** Hub with satellites. Used by the "Providers" entry. */
     public val Providers: ImageVector = outline("ZynProviders") {
         circle(12f, 12f, 2.6f)
@@ -108,6 +120,13 @@ public object ZynIcons {
         roundRect(13.4f, 4.3f, 6.7f, 6.7f, 2f)
         roundRect(3.9f, 12.9f, 6.7f, 6.7f, 2f)
         roundRect(13.4f, 12.9f, 6.7f, 6.7f, 2f)
+    }
+
+    /** Tick. Used as the selection indicator on the chosen model. */
+    public val Check: ImageVector = outline("ZynCheck") {
+        moveTo(5.8f, 12.4f)
+        lineTo(10.2f, 16.6f)
+        lineTo(18.4f, 7.8f)
     }
 
     /** Cross. Used to remove a staged attachment. */

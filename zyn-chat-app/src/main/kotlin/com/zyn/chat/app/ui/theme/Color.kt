@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 private val Blue = Color(0xFF0A6CF5)
 private val BlueBright = Color(0xFF4C93FF)
 private val BlueDeep = Color(0xFF0546A6)
-private val Violet = Color(0xFF6C4CF1)
+private val BlueSoft = Color(0xFFBBD6FF)
 
 // Neutrals
 private val White = Color(0xFFFFFFFF)
@@ -55,14 +55,14 @@ internal val LightColorScheme =
         onPrimary = White,
         primaryContainer = Blue.copy(alpha = 0.10f),
         onPrimaryContainer = BlueDeep,
-        secondary = Violet,
+        secondary = Blue,
         onSecondary = White,
-        secondaryContainer = Violet.copy(alpha = 0.10f),
-        onSecondaryContainer = Violet,
-        tertiary = Violet,
+        secondaryContainer = Blue.copy(alpha = 0.10f),
+        onSecondaryContainer = BlueDeep,
+        tertiary = Blue,
         onTertiary = White,
-        tertiaryContainer = Violet.copy(alpha = 0.12f),
-        onTertiaryContainer = Violet,
+        tertiaryContainer = Blue.copy(alpha = 0.12f),
+        onTertiaryContainer = BlueDeep,
         background = White,
         onBackground = Ink,
         surface = White,
@@ -83,14 +83,14 @@ internal val DarkColorScheme =
         onPrimary = White,
         primaryContainer = BlueBright.copy(alpha = 0.16f),
         onPrimaryContainer = BlueBright,
-        secondary = Violet,
+        secondary = BlueBright,
         onSecondary = White,
-        secondaryContainer = Violet.copy(alpha = 0.18f),
-        onSecondaryContainer = Color(0xFFC3B6FF),
-        tertiary = Color(0xFF9C8CFF),
+        secondaryContainer = BlueBright.copy(alpha = 0.18f),
+        onSecondaryContainer = BlueSoft,
+        tertiary = BlueBright,
         onTertiary = Ink,
-        tertiaryContainer = Violet.copy(alpha = 0.20f),
-        onTertiaryContainer = Color(0xFFC3B6FF),
+        tertiaryContainer = BlueBright.copy(alpha = 0.20f),
+        onTertiaryContainer = BlueSoft,
         background = NightBackground,
         onBackground = NightText,
         surface = NightSurface,

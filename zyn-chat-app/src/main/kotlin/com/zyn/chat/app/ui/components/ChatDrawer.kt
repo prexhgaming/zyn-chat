@@ -104,9 +104,14 @@ fun ChatDrawer(
             )
         }
 
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+        )
+
         DrawerSectionLabel(
             text = stringResource(R.string.zyn_drawer_recents),
-            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 6.dp),
+            modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 6.dp),
         )
 
         if (conversations.isEmpty()) {

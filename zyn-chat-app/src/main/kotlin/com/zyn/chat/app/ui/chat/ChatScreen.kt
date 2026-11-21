@@ -42,7 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +75,8 @@ fun ChatScreen(
     modifier: Modifier = Modifier,
     onNewChatClick: () -> Unit = {},
     onChatDeleted: () -> Unit = {},
+    modelName: String? = null,
+    onModelClick: () -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val chatViewModel = viewModel<ChatViewModel>(
@@ -93,11 +94,6 @@ fun ChatScreen(
     val messages = state.messages
     val isAssistantBusy = state.assistantState.isBusy()
     val assistantState = state.assistantState
-
-    var selectedModelId by rememberSaveable { mutableStateOf(DefaultModel.id) }
-    val selectedModel = remember(selectedModelId) {
-        AvailableModels.firstOrNull { it.id == selectedModelId } ?: DefaultModel
-    }
 
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
@@ -146,9 +142,8 @@ fun ChatScreen(
                     onSendClick = chatViewModel::sendMessage,
                     onStopClick = chatViewModel::stopStreaming,
                     isGenerating = isAssistantBusy,
-                    selectedModel = selectedModel,
-                    models = AvailableModels,
-                    onModelSelected = { selectedModelId = it.id },
+                    modelName = modelName,
+                    onModelClick = onModelClick,
                 )
             }
         },

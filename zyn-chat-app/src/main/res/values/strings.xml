@@ -50,4 +50,28 @@
     <string name="zyn_composer_attachment">Attachment</string>
     <string name="zyn_composer_mic_permission">Microphone permission is needed for dictation</string>
     <string name="zyn_composer_model">Model</string>
+    <string name="zyn_composer_select_model">Select model</string>
+    <string name="zyn_composer_dictate">Dictate a message</string>
+    <string name="zyn_composer_stop_dictation">Stop dictation</string>
+    <string name="zyn_composer_cancel_dictation">Cancel dictation</string>
+
+    <!-- Dictation errors -->
+    <string name="zyn_speech_error_permission">Microphone permission is needed for dictation</string>
+    <string name="zyn_speech_error_no_match">Didn\'t catch that. Try again.</string>
+    <string name="zyn_speech_error_busy">Speech recognition is already running</string>
+    <string name="zyn_speech_error_network">Speech recognition needs a network connection</string>
+    <string name="zyn_speech_error_audio">Couldn\'t read the microphone</string>
+    <string name="zyn_speech_error_unavailable">Speech recognition isn\'t available on this device</string>
+    <string name="zyn_speech_error_unknown">Dictation failed. Please try again.</string>
+
+    <!-- Model picker -->
+    <string name="zyn_models_title">Select model</string>
+    <string name="zyn_models_no_provider">No providers configured</string>
+    <string name="zyn_models_providers_action">Providers</string>
+    <string name="zyn_models_provider_empty">This provider has no models yet.</string>
+    <string name="zyn_models_empty_title">No models available</string>
+    <string name="zyn_models_empty_message">Zyn Chat runs on the AI providers you add. Configure one to pick its models.</string>
+    <string name="zyn_models_empty_action">Add provider</string>
+    <string name="zyn_models_free">FREE</string>
+    <string name="zyn_models_selected">Selected</string>
 </resources>

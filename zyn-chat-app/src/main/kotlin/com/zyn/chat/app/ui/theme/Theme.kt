@@ -19,18 +19,33 @@ package com.zyn.chat.app.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
+/**
+ * Applies the Zyn Chat design system.
+ *
+ * @param darkTheme Whether to use the dark colour scheme. Defaults to the system setting.
+ * @param accent Accent tokens for selection and primary actions. `null` (the default) derives the
+ * accent from the active colour scheme's primary, which is the application's own identity. A future
+ * settings screen swaps the accent by passing its own [AccentColors] here — no component needs to
+ * change.
+ * @param content The content to theme.
+ */
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    accent: AccentColors? = null,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val resolvedAccent = accent ?: accentColors(colorScheme.primary, colorScheme.onPrimary)
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        shapes = ZynShapes,
-        content = content,
-    )
+    CompositionLocalProvider(LocalAccentColors provides resolvedAccent) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            shapes = ZynShapes,
+            content = content,
+        )
+    }
 }

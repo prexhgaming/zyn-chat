@@ -1,29 +1,36 @@
+/*
+ * Copyright (c) 2014-2026 Stream.io Inc. All rights reserved.
+ *
+ * Licensed under the Stream License;
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   https://github.com/GetStream/stream-chat-android-ai/blob/main/LICENSE
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.zyn.chat.app.ui.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -33,123 +40,61 @@ import com.zyn.chat.app.R
 import com.zyn.chat.app.ui.icons.ZynIcons
 
 /**
- * Compact model picker shown inside the composer.
+ * Model pill inside the composer.
  *
- * Renders as a pill with the model glyph, the selected model name and a chevron; tapping it opens
- * the list of available models. The pill is presentation only: [onModelSelected] reports the choice
- * to the caller, which owns the selection state.
+ * Shows the active model, or a call to action when nothing is selected, and opens the model picker
+ * bottom sheet when tapped. It only reports the tap: the selection itself lives in the provider
+ * state, so the pill always reflects the real application state.
  *
- * @param selectedModel The model currently selected.
- * @param models Models offered in the dropdown.
- * @param onModelSelected Invoked with the model the person picked.
+ * @param modelName Name of the active model, or `null` when no model is selected.
+ * @param onClick Invoked when the pill is tapped.
  * @param modifier Applied to the pill.
- * @param enabled Whether the pill can be tapped.
+ * @param enabled Whether the pill reacts to taps.
  */
 @Composable
-fun ModelSelector(
-    selectedModel: ChatModel,
-    models: List<ChatModel>,
-    onModelSelected: (ChatModel) -> Unit,
+internal fun ModelSelector(
+    modelName: String?,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val pillLabel = stringResource(R.string.zyn_composer_model)
+    val label = stringResource(R.string.zyn_composer_model)
 
-    Box(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(enabled = enabled) { expanded = true }
-                .padding(horizontal = 10.dp, vertical = 6.dp)
-                .semantics { contentDescription = pillLabel },
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = ZynIcons.ModelBlocks,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = MaterialTheme.colorScheme.tertiary,
-            )
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .semantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = ZynIcons.ModelBlocks,
+            contentDescription = null,
+            modifier = Modifier.size(15.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-            Text(
-                text = selectedModel.name,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 150.dp),
-            )
+        Text(
+            text = modelName ?: stringResource(R.string.zyn_composer_select_model),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (modelName == null) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 150.dp),
+        )
 
-            Icon(
-                imageVector = ZynIcons.ChevronDown,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            models.forEach { model ->
-                ModelMenuItem(
-                    model = model,
-                    selected = model.id == selectedModel.id,
-                    onClick = {
-                        expanded = false
-                        onModelSelected(model)
-                    },
-                )
-            }
-        }
+        Icon(
+            imageVector = ZynIcons.ChevronDown,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
-}
-
-@Composable
-private fun ModelMenuItem(
-    model: ChatModel,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val glyph: ImageVector = ZynIcons.ModelBlocks
-    val tint =
-        if (selected) {
-            MaterialTheme.colorScheme.tertiary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-
-    DropdownMenuItem(
-        onClick = onClick,
-        leadingIcon = {
-            Icon(
-                imageVector = glyph,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = tint,
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = model.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = model.provider,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        },
-    )
 }

@@ -23,17 +23,37 @@ Stream license headers stay in place (see `LICENSE`).
 
 - Design tokens live in `ui/theme`: `Color.kt` (palettes), `Typography.kt` (type scale, also used for
   Markdown heading mapping), `Shape.kt` (radii). Change colours/type there, not inline.
+- **The accent is a token, never a literal colour**: `ui/theme/Accent.kt` exposes
+  `MaterialTheme.accent` (`primary`, `onPrimary`, `tint`, `border`). It falls back to the colour
+  scheme's primary (the app's blue). Selection states, the send button and the model picker read
+  these tokens, so a future settings screen swaps the accent via `AppTheme(accent = ...)` without
+  touching components. Do not hardcode an accent colour anywhere.
 - Icons are `ImageVector`s in `ui/icons/ZynIcons.kt` (shared 24x24 viewport, 1.7dp stroke), not
   drawable resources. The app's older `res/drawable/ic_*` icons are the Material-Symbols ones the
   top bar still uses.
-- The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `ModelSelector.kt`.
-  The library's `ChatComposer` is intentionally left untouched, so the `zyn-chat-compose` Paparazzi
-  snapshots keep matching — don't restyle library components to change the app's look.
+- The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `SmartSendButton.kt`
+  + `ModelSelector.kt`. The library's `ChatComposer` and `SpeechToTextButton` are intentionally left
+  untouched (and unused by the app), so the `zyn-chat-compose` Paparazzi snapshots keep matching —
+  don't restyle library components to change the app's look.
+- Dictation is the app's own `ui/chat/speech/SpeechInput.kt` state machine (idle / listening /
+  processing / error / unavailable). It writes recognised text into the field and **never** sends;
+  only `SmartSendButton` sends. Release it via `rememberSpeechInput()`'s `DisposableEffect`.
+- `SmartSendButton` = mic when empty, send when there is text, stop while generating, stop/cancel
+  while dictating. Long press dictates, and a long press can never fall through into a send.
+- Model picker: `ui/chat/ModelPickerSheet.kt` (Material `ModalBottomSheet`, drag handle, provider
+  tabs, per-model rows, empty state). The drawer is a `ModalNavigationDrawer` with a partial-width
+  sheet, animated scrim and an edge-swipe strip in `ui/AiChatApp.kt`.
 - Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt` and `DrawerConversationItem.kt`.
 - User-facing text goes through `res/values/strings.xml` (names prefixed `zyn_`).
-- **Presentation only for now**: the Providers/Routing drawer entries, the drawer search action and
-  the composer's model selector render and report taps, but have no screens or wiring behind them.
-  `ui/chat/ChatModel.kt` is a local model list, not a provider integration.
+- Provider and model state: `data/providers/` (`AiProvider`, `AiModel`, `ProvidersState`,
+  `ProviderRepository` — SharedPreferences-backed selection) and
+  `presentation/providers/ProvidersViewModel.kt`. **Providers start empty by design**: nothing may
+  invent a provider or a model list. Integrations call `registerProvider` / `setProviderEnabled` /
+  `removeProvider` once they exist.
+- The drawer's "Providers" entry and the "Providers" action in the model picker header both call the
+  single `onManageProviders` action hoisted in `ui/AiChatApp.kt` (currently a no-op) — never add a
+  second provider-management path or screen.
+- **Presentation only for now**: routing, the drawer search action, the profile row.
 
 ## Commands
 
@@ -75,6 +95,7 @@ The keystore is **never committed** (`*.jks`, `signing.properties`, `.secrets/` 
 
 ## Scope
 
-Phase 1 was project setup; the current phase is UI/UX redesign. BYOK (bring-your-own-key) key
-management, AI provider integrations and request routing are **not implemented yet** — the drawer
-entries and model selector for them are visual only. Do not assume their design.
+Setup and UI/UX redesign are done; the drawer, composer, dictation and model picker are real UI.
+BYOK key management, AI provider integrations and request routing are **not implemented yet**: the
+provider/model architecture, persistence and empty states exist, but nothing registers a provider.
+Do not invent providers, models or backend behaviour.

@@ -105,55 +105,6 @@ private fun AttachmentMenuIcon(icon: ImageVector) {
 }
 
 /**
- * Send button. Turns into a stop button while the assistant is answering.
- *
- * @param isGenerating Whether the assistant is currently generating a response.
- * @param enabled Whether the button reacts to taps.
- * @param onSendClick Invoked when the message is sent.
- * @param onStopClick Invoked when generation is stopped.
- * @param modifier Applied to the button.
- */
-@Composable
-internal fun SendButton(
-    isGenerating: Boolean,
-    enabled: Boolean,
-    onSendClick: () -> Unit,
-    onStopClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val background = when {
-        isGenerating -> MaterialTheme.colorScheme.primaryContainer
-        enabled -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-    val contentColor = when {
-        isGenerating -> MaterialTheme.colorScheme.onPrimaryContainer
-        enabled -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Box(
-        modifier = modifier
-            .size(38.dp)
-            .clip(CircleShape)
-            .background(background)
-            .clickable(enabled = enabled) {
-                if (isGenerating) onStopClick() else onSendClick()
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = if (isGenerating) ZynIcons.Stop else ZynIcons.ArrowUp,
-            contentDescription = stringResource(
-                if (isGenerating) R.string.zyn_composer_stop else R.string.zyn_composer_send,
-            ),
-            modifier = Modifier.size(if (isGenerating) 15.dp else 19.dp),
-            tint = contentColor,
-        )
-    }
-}
-
-/**
  * Attachment chips staged in the composer, scrollable on one line so the composer never grows tall.
  *
  * @param attachments Staged attachment URIs.
