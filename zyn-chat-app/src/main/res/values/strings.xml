@@ -75,6 +75,20 @@
     <string name="zyn_models_free">FREE</string>
     <string name="zyn_models_selected">Selected</string>
     <string name="zyn_models_filter">Filter models</string>
+    <string name="zyn_models_search_hint">Search models</string>
+    <string name="zyn_models_search_clear">Clear search</string>
+    <string name="zyn_models_no_results">No model on %1$s matches “%2$s”.</string>
+    <string name="zyn_models_provider_empty_hint">Open Providers to refresh this provider\'s model list.</string>
+    <string name="zyn_models_section_selected">Selected</string>
+    <string name="zyn_models_section_vision">Vision</string>
+    <string name="zyn_models_section_tools">Tool use</string>
+    <string name="zyn_models_section_free">Free</string>
+    <string name="zyn_models_section_other">Other</string>
+    <string name="zyn_models_cap_reads_pictures">reads pictures</string>
+    <string name="zyn_models_cap_text_only">text only</string>
+    <string name="zyn_models_cap_tools">tools</string>
+    <string name="zyn_models_cap_context">%1$s context</string>
+    <string name="zyn_models_cap_context_unknown">context unknown</string>
 
     <!-- Providers screen. -->
     <string name="zyn_providers_title">Providers</string>
