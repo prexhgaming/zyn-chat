@@ -97,7 +97,7 @@ public class SpeechInput(private val context: Context) {
 
     private val listener = RecognitionListenerAdapter(
         onReady = { updateState(SpeechInputState.Listening) },
-        onEndOfSpeech = { updateState(SpeechInputState.Processing) },
+        onSpeechEnd = { updateState(SpeechInputState.Processing) },
         onPartial = { recognized -> publish(recognized) },
         onFinal = { recognized ->
             if (recognized.isBlank()) {
@@ -239,7 +239,7 @@ private fun mergeDictation(base: String, recognized: String): String = when {
 /** Maps the recognizer's callbacks onto the small state machine in [SpeechInput]. */
 private class RecognitionListenerAdapter(
     private val onReady: () -> Unit,
-    private val onEndOfSpeech: () -> Unit,
+    private val onSpeechEnd: () -> Unit,
     private val onPartial: (String) -> Unit,
     private val onFinal: (String) -> Unit,
     private val onFailure: (SpeechErrorReason) -> Unit,
@@ -253,7 +253,7 @@ private class RecognitionListenerAdapter(
 
     override fun onBufferReceived(buffer: ByteArray?) = Unit
 
-    override fun onEndOfSpeech() = onEndOfSpeech()
+    override fun onEndOfSpeech() = onSpeechEnd()
 
     override fun onError(error: Int) = onFailure(error.toReason())
 
