@@ -36,8 +36,10 @@ Stream license headers stay in place (see `LICENSE`).
   untouched (and unused by the app), so the `zyn-chat-compose` Paparazzi snapshots keep matching —
   don't restyle library components to change the app's look.
 - Dictation is the app's own `ui/chat/speech/SpeechInput.kt` state machine (idle / listening /
-  processing / error / unavailable). It writes recognised text into the field and **never** sends;
-  only `SmartSendButton` sends. Release it via `rememberSpeechInput()`'s `DisposableEffect`.
+  processing / error / unavailable). It chains recognition attempts, because the platform recognizer
+  stops at the first end of speech, so dictation keeps running until the person stops it or types —
+  typing cancels it. It writes recognised text into the field and **never** sends; only
+  `SmartSendButton` sends. Release it via `rememberSpeechInput()`'s `DisposableEffect`.
 - `SmartSendButton` = mic when empty, send when there is text, stop while generating, stop/cancel
   while dictating. Long press dictates, and a long press can never fall through into a send.
 - Model picker: `ui/chat/ModelPickerSheet.kt` (Material `ModalBottomSheet`, drag handle, provider

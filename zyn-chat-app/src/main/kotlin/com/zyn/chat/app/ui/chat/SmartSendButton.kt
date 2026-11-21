@@ -163,8 +163,10 @@ internal fun SmartSendButton(
                 )
 
                 else -> Icon(
+                    // While dictating, the button stops the microphone: partial results put text in
+                    // the field, so a send arrow here would be misleading.
                     imageVector = when {
-                        isGenerating -> ZynIcons.Stop
+                        isGenerating || isListening -> ZynIcons.Stop
                         hasText -> ZynIcons.ArrowUp
                         else -> ZynIcons.Mic
                     },

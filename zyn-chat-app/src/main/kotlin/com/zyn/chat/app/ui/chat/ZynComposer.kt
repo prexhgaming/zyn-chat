@@ -73,9 +73,10 @@ import kotlinx.coroutines.launch
  * Photos and documents are staged as attachments on [MessageData], exactly like the chat composer
  * in `zyn-chat-compose`, so they flow through the existing send path untouched.
  *
- * Dictation is driven by [rememberSpeechInput]: recognised speech is written into the field, where
- * it stays editable, and nothing is ever sent by the recogniser finishing. While dictation runs the
- * field is read-only so partial results can replace the dictated segment without losing typed text.
+ * Dictation is driven by [rememberSpeechInput] and runs continuously: every completed utterance is
+ * appended to the field and listening restarts, until the person stops it with the same button or
+ * starts typing. Typing wins — it ends dictation immediately — and a dictation never sends a
+ * message, so the text always stays editable and reviewable before it goes out.
  *
  * @param onSendClick Invoked with the composed message when the person sends it.
  * @param onStopClick Invoked while the assistant is answering, to stop it.
@@ -164,11 +165,13 @@ fun ZynComposer(
         if (granted) beginDictation() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    val canSend = messageData.text.isNotBlank() && !isGenerating && !speechInput.isActive
+    val canSend = messageData.text.isNotBlank() && !isGenerating
 
     val sendMessage = {
+        // Sending ends dictation first, so the two never fight over the field.
+        if (speechInput.isActive) speechInput.cancel()
+
         if (canSend) {
-            if (speechInput.isActive) speechInput.cancel()
             val message = messageData
             messageData = MessageData()
             keyboardController?.hide()
@@ -204,8 +207,12 @@ fun ZynComposer(
             Column {
                 ComposerTextField(
                     text = messageData.text,
-                    enabled = !isGenerating && !speechInput.isActive,
-                    onTextChange = { messageData = messageData.copy(text = it) },
+                    enabled = !isGenerating,
+                    onTextChange = { typed ->
+                        // The person's typing takes over from dictation.
+                        if (speechInput.isActive) speechInput.cancel()
+                        messageData = messageData.copy(text = typed)
+                    },
                     onSend = sendMessage,
                 )
 
