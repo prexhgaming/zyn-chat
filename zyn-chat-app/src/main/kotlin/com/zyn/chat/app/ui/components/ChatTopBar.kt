@@ -17,10 +17,11 @@
 package com.zyn.chat.app.ui.components
 
 import android.content.res.Configuration
-import androidx.compose.foundation.layout.Arrangement
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.DropdownMenu
@@ -36,15 +37,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
 import com.zyn.chat.app.ui.theme.AppTheme
 
+/**
+ * Chat header: navigation trigger, the conversation title, and the actions for the current chat.
+ *
+ * Deliberately quiet — flat icon buttons on the background, with the title taking the free space —
+ * so the conversation, not the chrome, carries the screen.
+ *
+ * @param title Conversation title shown in the middle.
+ * @param onMenuClick Invoked when the navigation trigger is tapped.
+ * @param onNewChatClick Invoked when "New chat" is tapped, if the action is available.
+ * @param onDeleteClick Invoked when "Delete" is chosen, if the action is available.
+ * @param modifier Applied to the bar.
+ */
 @Composable
-public fun ChatTopBar(
+fun ChatTopBar(
     title: String,
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -55,75 +71,111 @@ public fun ChatTopBar(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChatFloatingButton(
+        TopBarIconButton(
+            icon = R.drawable.ic_menu,
+            label = stringResource(R.string.zyn_action_menu),
             onClick = onMenuClick,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_menu),
-                contentDescription = "Menu",
+        )
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 4.dp),
+        )
+
+        if (onNewChatClick != null) {
+            TopBarIconButton(
+                icon = R.drawable.ic_new,
+                label = stringResource(R.string.zyn_action_new_chat),
+                onClick = onNewChatClick,
             )
         }
 
-        ChatFloatingActions {
-            if (onNewChatClick != null) {
-                IconButton(onClick = onNewChatClick) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_new),
-                        contentDescription = "New chat",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-
-            if (onDeleteClick != null) {
-                var expanded by remember { mutableStateOf(false) }
-
-                IconButton(onClick = { expanded = true }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_more),
-                        contentDescription = "More options",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .sizeIn(maxWidth = 200.dp)
-                            .padding(8.dp),
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-
-                    HorizontalDivider()
-
-                    DropdownMenuItem(
-                        text = { Text("Delete") },
-                        onClick = {
-                            expanded = false
-                            onDeleteClick()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_delete),
-                                contentDescription = null,
-                            )
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = MaterialTheme.colorScheme.error,
-                            leadingIconColor = MaterialTheme.colorScheme.error,
-                        ),
-                    )
-                }
-            }
+        if (onDeleteClick != null) {
+            ChatOverflowMenu(
+                title = title,
+                onDeleteClick = onDeleteClick,
+            )
         }
+    }
+}
+
+@Composable
+private fun TopBarIconButton(
+    @DrawableRes icon: Int,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = label,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ChatOverflowMenu(
+    title: String,
+    onDeleteClick: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    TopBarIconButton(
+        icon = R.drawable.ic_more,
+        label = stringResource(R.string.zyn_action_more),
+        onClick = { expanded = true },
+    )
+
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = { expanded = false },
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .sizeIn(maxWidth = 200.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        )
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.zyn_action_delete)) },
+            onClick = {
+                expanded = false
+                onDeleteClick()
+            },
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+            colors = MenuDefaults.itemColors(
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIconColor = MaterialTheme.colorScheme.error,
+            ),
+        )
     }
 }
 
@@ -133,7 +185,7 @@ public fun ChatTopBar(
 private fun ChatTopBarPreview() {
     AppTheme {
         ChatTopBar(
-            title = "Chat Title",
+            title = "Trip to Kyoto",
             onMenuClick = {},
             onNewChatClick = {},
             onDeleteClick = {},

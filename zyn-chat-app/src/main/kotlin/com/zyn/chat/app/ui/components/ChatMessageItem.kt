@@ -16,22 +16,24 @@
 
 package com.zyn.chat.app.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.presentation.chat.ChatUiState
+import com.zyn.chat.app.ui.theme.BubbleShape
 import com.zyn.chat.compose.ui.component.AIMessageParts
 import com.zyn.chat.compose.ui.component.StreamingText
 import io.getstream.chat.android.compose.state.messages.attachments.AttachmentState
@@ -40,74 +42,92 @@ import io.getstream.chat.android.compose.ui.theme.ChatTheme
 import io.getstream.chat.android.models.Message
 
 /**
- * Displays a single chat message with proper styling based on role.
- * User messages appear on the right with a colored bubble.
- * Assistant messages fill the width without a bubble.
+ * Displays a single chat message.
  *
- * @param message The message to display
- * @param modifier Modifier to be applied to the message item
+ * The assistant answers as plain, full-width text; the person's own messages sit on the right in a
+ * soft bubble. Sharing the same text styles keeps the two sides visually consistent.
+ *
+ * @param message The message to display.
+ * @param modifier Applied to the message.
  */
 @Composable
 public fun ChatMessageItem(
     message: ChatUiState.Message,
     modifier: Modifier = Modifier,
 ) {
-    val isUser = message.role is ChatUiState.Message.Role.User
+    val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * MAX_BUBBLE_FRACTION).dp
 
     SelectionContainer(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-        ) {
-            when (message.role) {
-                ChatUiState.Message.Role.Assistant -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (message.parts.isNotEmpty()) {
-                            AIMessageParts(parts = message.parts)
-                        }
-                        if (message.content.isNotBlank()) {
-                            StreamingText(
-                                text = message.content,
-                                animate = message.isGenerating,
-                            )
-                        }
-                    }
-                }
+        when (message.role) {
+            is ChatUiState.Message.Role.Assistant -> AssistantMessage(message = message)
 
-                ChatUiState.Message.Role.User -> {
-                    Spacer(modifier = Modifier.weight(.2f))
-                    MessageBubble(modifier = Modifier.weight(.8f, fill = false)) {
-                        Column {
-                            if (message.attachments.isNotEmpty()) {
-                                ChatTheme {
-                                    MediaAttachmentContent(
-                                        state = AttachmentState(
-                                            message = Message(
-                                                text = message.content,
-                                                attachments = message.attachments,
-                                            ),
-                                            isMine = true,
-                                        ),
-                                    )
-                                }
-                            }
-                            StreamingText(
-                                text = message.content,
-                                animate = false,
-                            )
-                        }
-                    }
-                }
+            is ChatUiState.Message.Role.User -> BubbleMessage(
+                message = message,
+                maxBubbleWidth = maxBubbleWidth,
+                alignment = Alignment.CenterEnd,
+            )
 
-                ChatUiState.Message.Role.Other -> {
-                    MessageBubble(modifier = Modifier.weight(.8f, fill = false)) {
-                        StreamingText(
-                            text = message.content,
-                            animate = false,
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(.2f))
+            is ChatUiState.Message.Role.Other -> BubbleMessage(
+                message = message,
+                maxBubbleWidth = maxBubbleWidth,
+                alignment = Alignment.CenterStart,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AssistantMessage(
+    message: ChatUiState.Message,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (message.parts.isNotEmpty()) {
+            AIMessageParts(parts = message.parts)
+        }
+        if (message.content.isNotBlank()) {
+            StreamingText(
+                text = message.content,
+                animate = message.isGenerating,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BubbleMessage(
+    message: ChatUiState.Message,
+    maxBubbleWidth: Dp,
+    alignment: Alignment,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = alignment,
+    ) {
+        MessageBubble(modifier = Modifier.widthIn(max = maxBubbleWidth)) {
+            if (message.attachments.isNotEmpty()) {
+                ChatTheme {
+                    MediaAttachmentContent(
+                        state = AttachmentState(
+                            message = Message(
+                                text = message.content,
+                                attachments = message.attachments,
+                            ),
+                            isMine = true,
+                        ),
+                    )
                 }
+            }
+
+            if (message.content.isNotBlank()) {
+                StreamingText(
+                    text = message.content,
+                    animate = false,
+                )
             }
         }
     }
@@ -116,14 +136,20 @@ public fun ChatMessageItem(
 @Composable
 private fun MessageBubble(
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Box(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+    Surface(
+        modifier = modifier,
+        shape = BubbleShape,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-        content()
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            content = content,
+        )
     }
 }
+
+/** Share of the screen width a bubble may take up. */
+private const val MAX_BUBBLE_FRACTION = 0.82f

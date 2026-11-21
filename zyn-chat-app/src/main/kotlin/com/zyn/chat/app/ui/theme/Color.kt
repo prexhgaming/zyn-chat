@@ -20,73 +20,87 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-private val Blue600 = Color(0xFF0169CC)
+// Brand
+private val Blue = Color(0xFF0A6CF5)
+private val BlueBright = Color(0xFF4C93FF)
+private val BlueDeep = Color(0xFF0546A6)
+private val Violet = Color(0xFF6C4CF1)
+
+// Neutrals
 private val White = Color(0xFFFFFFFF)
-private val Grey200 = Color(0xFFECECEC)
-private val Grey900 = Color(0xFF0D0D0D)
-private val Grey500 = Color(0xFF5D5D5D)
+private val Ink = Color(0xFF0E1013)
+private val Mist = Color(0xFFF2F3F5)
+private val Slate = Color(0xFF666D7A)
+private val SlateSoft = Color(0xFF9BA2AF)
+private val Hairline = Color(0xFFE4E6EA)
+private val HairlineSoft = Color(0xFFEEF0F3)
 
-private val Blue400 = Color(0xFF339CFF)
-private val Grey800 = Color(0xFF212121)
-private val Grey700 = Color(0xFF2F2F2F)
-private val Grey600 = Color(0xFF424242)
-private val Grey100 = Color(0xFFF3F3F3)
+// Dark neutrals
+private val NightBackground = Color(0xFF0F1013)
+private val NightSurface = Color(0xFF141519)
+private val NightElevated = Color(0xFF23252B)
+private val NightOutline = Color(0xFF2C2F36)
+private val NightOutlineSoft = Color(0xFF23262C)
+private val NightText = Color(0xFFECEEF1)
 
-private val Red500 = Color(0xFFE02E2A)
-private val Red900 = Color(0xFF4D100E)
-private val Red50 = Color(0xFFFFF0F0)
-
-private val BlueGrey40 = Color(0xFF6B7280)
-private val BlueGrey80 = Color(0xFF9CA3AF)
-
-internal val DarkColorScheme =
-    darkColorScheme(
-        primary = Blue400,
-        onPrimary = White,
-        primaryContainer = Blue400.copy(alpha = 0.2f),
-        onPrimaryContainer = Blue400,
-        secondary = BlueGrey80,
-        onSecondary = White,
-        secondaryContainer = BlueGrey80.copy(alpha = 0.2f),
-        onSecondaryContainer = BlueGrey80,
-        tertiary = Blue400,
-        onTertiary = White,
-        background = Grey800,
-        onBackground = White,
-        surface = Grey700,
-        onSurface = White,
-        surfaceVariant = Grey600,
-        onSurfaceVariant = Grey100,
-        outline = White.copy(alpha = 0.15f),
-        outlineVariant = White.copy(alpha = 0.15f),
-        error = Red500,
-        onError = White,
-        errorContainer = Red900.copy(alpha = 0.2f),
-        onErrorContainer = Red500,
-    )
+// Feedback
+private val Red = Color(0xFFDC2B2B)
+private val RedSoft = Color(0xFFFF6B6B)
+private val RedWash = Color(0xFFFFF1F1)
+private val RedDeep = Color(0xFF3A0B0B)
 
 internal val LightColorScheme =
     lightColorScheme(
-        primary = Blue600,
+        primary = Blue,
         onPrimary = White,
-        primaryContainer = Blue600.copy(alpha = 0.1f),
-        onPrimaryContainer = Blue600,
-        secondary = BlueGrey40,
+        primaryContainer = Blue.copy(alpha = 0.10f),
+        onPrimaryContainer = BlueDeep,
+        secondary = Violet,
         onSecondary = White,
-        secondaryContainer = BlueGrey40.copy(alpha = 0.1f),
-        onSecondaryContainer = BlueGrey40,
-        tertiary = Blue600,
+        secondaryContainer = Violet.copy(alpha = 0.10f),
+        onSecondaryContainer = Violet,
+        tertiary = Violet,
         onTertiary = White,
+        tertiaryContainer = Violet.copy(alpha = 0.12f),
+        onTertiaryContainer = Violet,
         background = White,
-        onBackground = Grey900,
-        surface = Grey100,
-        onSurface = Grey900,
-        surfaceVariant = Grey200,
-        onSurfaceVariant = Grey500,
-        outline = Grey900.copy(alpha = 0.1f),
-        outlineVariant = Grey900.copy(alpha = 0.1f),
-        error = Red500,
+        onBackground = Ink,
+        surface = White,
+        onSurface = Ink,
+        surfaceVariant = Mist,
+        onSurfaceVariant = Slate,
+        outline = Hairline,
+        outlineVariant = HairlineSoft,
+        error = Red,
         onError = White,
-        errorContainer = Red50.copy(alpha = 0.1f),
-        onErrorContainer = Red500,
+        errorContainer = RedWash,
+        onErrorContainer = Red,
+    )
+
+internal val DarkColorScheme =
+    darkColorScheme(
+        primary = BlueBright,
+        onPrimary = White,
+        primaryContainer = BlueBright.copy(alpha = 0.16f),
+        onPrimaryContainer = BlueBright,
+        secondary = Violet,
+        onSecondary = White,
+        secondaryContainer = Violet.copy(alpha = 0.18f),
+        onSecondaryContainer = Color(0xFFC3B6FF),
+        tertiary = Color(0xFF9C8CFF),
+        onTertiary = Ink,
+        tertiaryContainer = Violet.copy(alpha = 0.20f),
+        onTertiaryContainer = Color(0xFFC3B6FF),
+        background = NightBackground,
+        onBackground = NightText,
+        surface = NightSurface,
+        onSurface = NightText,
+        surfaceVariant = NightElevated,
+        onSurfaceVariant = SlateSoft,
+        outline = NightOutline,
+        outlineVariant = NightOutlineSoft,
+        error = RedSoft,
+        onError = Ink,
+        errorContainer = RedDeep,
+        onErrorContainer = RedSoft,
     )

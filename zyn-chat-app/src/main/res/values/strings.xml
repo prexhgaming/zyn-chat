@@ -16,4 +16,38 @@
 -->
 <resources>
     <string name="app_name">Zyn Chat</string>
+
+    <!-- Drawer -->
+    <string name="zyn_drawer_search">Search</string>
+    <string name="zyn_drawer_providers">Providers</string>
+    <string name="zyn_drawer_routing">Routing</string>
+    <string name="zyn_drawer_recents">Recents</string>
+    <string name="zyn_drawer_empty">No conversations yet</string>
+    <string name="zyn_action_new_chat">New chat</string>
+    <string name="zyn_action_menu">Open navigation</string>
+    <string name="zyn_action_more">More options</string>
+    <string name="zyn_action_delete">Delete</string>
+    <string name="zyn_action_cancel">Cancel</string>
+
+    <!-- Chat -->
+    <string name="zyn_empty_title">Zyn Chat</string>
+    <string name="zyn_empty_subtitle">Ask anything, or attach a file to get started.</string>
+    <string name="zyn_error_message">Something went wrong while answering. Please try again.</string>
+    <string name="zyn_reply_thinking">Thinking</string>
+    <string name="zyn_reply_checking_sources">Checking sources</string>
+    <string name="zyn_reply_generating">Generating response</string>
+    <string name="zyn_dialog_delete_title">Delete chat</string>
+    <string name="zyn_dialog_delete_message">This conversation will be deleted permanently.</string>
+
+    <!-- Composer -->
+    <string name="zyn_composer_placeholder">Message Zyn Chat</string>
+    <string name="zyn_composer_attach">Add attachment</string>
+    <string name="zyn_composer_attach_photos">Photos</string>
+    <string name="zyn_composer_attach_files">Files</string>
+    <string name="zyn_composer_send">Send</string>
+    <string name="zyn_composer_stop">Stop</string>
+    <string name="zyn_composer_remove_attachment">Remove attachment</string>
+    <string name="zyn_composer_attachment">Attachment</string>
+    <string name="zyn_composer_mic_permission">Microphone permission is needed for dictation</string>
+    <string name="zyn_composer_model">Model</string>
 </resources>

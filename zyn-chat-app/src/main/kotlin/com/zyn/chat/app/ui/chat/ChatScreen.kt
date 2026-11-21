@@ -21,7 +21,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,15 +42,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zyn.chat.app.ChatDependencies
+import com.zyn.chat.app.R
 import com.zyn.chat.app.di.ChatViewModelFactory
 import com.zyn.chat.app.presentation.chat.ChatUiState
 import com.zyn.chat.app.presentation.chat.ChatUiState.Action
@@ -56,13 +61,11 @@ import com.zyn.chat.app.presentation.chat.ChatViewModel
 import com.zyn.chat.app.presentation.chat.getCurrentAssistantMessage
 import com.zyn.chat.app.presentation.chat.getCurrentUserMessage
 import com.zyn.chat.app.presentation.chat.isBusy
+import com.zyn.chat.app.ui.components.ChatEmptyState
 import com.zyn.chat.app.ui.components.ChatMessageItem
 import com.zyn.chat.app.ui.components.ChatScaffold
 import com.zyn.chat.app.ui.components.ChatTopBar
-import com.zyn.chat.compose.ui.component.AISuggestions
 import com.zyn.chat.compose.ui.component.AITypingIndicator
-import com.zyn.chat.compose.ui.component.ChatComposer
-import com.zyn.chat.compose.ui.component.MessageData
 import kotlinx.coroutines.delay
 
 @Composable
@@ -91,6 +94,11 @@ fun ChatScreen(
     val isAssistantBusy = state.assistantState.isBusy()
     val assistantState = state.assistantState
 
+    var selectedModelId by rememberSaveable { mutableStateOf(DefaultModel.id) }
+    val selectedModel = remember(selectedModelId) {
+        AvailableModels.firstOrNull { it.id == selectedModelId } ?: DefaultModel
+    }
+
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     // Scroll to bottom when the user sends a new message
@@ -117,18 +125,7 @@ fun ChatScreen(
         modifier = modifier.fillMaxSize(),
         topBar = { modifier ->
             ChatTopBar(
-                modifier = modifier
-                    // Blur gradient to create a visual fade effect that blends with the message list behind it
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
-                                Color.Transparent,
-                            ),
-                        ),
-                    ),
+                modifier = modifier.background(brush = topBarFade()),
                 title = state.title,
                 onMenuClick = onMenuClick,
                 onNewChatClick = if (state.actions.contains(Action.NewChat)) {
@@ -144,30 +141,14 @@ fun ChatScreen(
             )
         },
         bottomBar = { modifier ->
-            Column(
-                modifier = modifier
-                    // Blur gradient to create a visual fade effect that blends with the message list behind it
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                                MaterialTheme.colorScheme.background,
-                            ),
-                        ),
-                    ),
-            ) {
-                if (!state.isLoading && messages.isEmpty()) {
-                    AISuggestions(
-                        suggestions = SUGGESTIONS,
-                        onSuggestionClick = { text -> chatViewModel.sendMessage(MessageData(text = text)) },
-                    )
-                }
-                ChatComposer(
+            Column(modifier = modifier.background(brush = composerFade())) {
+                ZynComposer(
                     onSendClick = chatViewModel::sendMessage,
                     onStopClick = chatViewModel::stopStreaming,
                     isGenerating = isAssistantBusy,
+                    selectedModel = selectedModel,
+                    models = AvailableModels,
+                    onModelSelected = { selectedModelId = it.id },
                 )
             }
         },
@@ -180,8 +161,14 @@ fun ChatScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
+            } else if (messages.isEmpty()) {
+                ChatEmptyState(modifier = Modifier.padding(contentPadding))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -213,7 +200,7 @@ fun ChatScreen(
                         items = messages,
                     ) { message ->
                         ChatMessageItem(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
                             message = message,
                         )
                     }
@@ -225,14 +212,14 @@ fun ChatScreen(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Delete Chat") },
-            text = { Text("Are you sure you want to delete this chat? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.zyn_dialog_delete_title)) },
+            text = { Text(stringResource(R.string.zyn_dialog_delete_message)) },
             confirmButton = {
                 TextButton(
                     onClick = confirmDelete,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.zyn_action_delete))
                 }
             },
             dismissButton = {
@@ -240,30 +227,44 @@ fun ChatScreen(
                     onClick = { showDeleteConfirmation = false },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.zyn_action_cancel))
                 }
             },
         )
     }
 }
 
-private val SUGGESTIONS = listOf(
-    "Create a painting in Renaissance-style",
-    "Create a workout plan for resistance training",
-    "Help me study vocabulary for an exam",
-    "Tell me the best stocks to invest",
-    "Top 5 restaurants in New York",
-)
+/** Fades the header into the conversation behind it. */
+@Composable
+private fun topBarFade(): Brush =
+    Brush.verticalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+            Color.Transparent,
+        ),
+    )
+
+/** Fades the composer area into the conversation above it. */
+@Composable
+private fun composerFade(): Brush =
+    Brush.verticalGradient(
+        colors = listOf(
+            Color.Transparent,
+            MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+            MaterialTheme.colorScheme.background,
+        ),
+    )
 
 @Composable
 private fun AssistantErrorMessage(
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text = "Sorry, I encountered an error while processing your request. Please try again.",
+        text = stringResource(R.string.zyn_error_message),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.error,
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
@@ -276,19 +277,24 @@ private fun AssistantLoadingIndicator(
     // A reply with steps shows its own progress.
     if (assistantMessage?.parts.orEmpty().isNotEmpty()) return
     val text = when (assistantState) {
-        ChatUiState.AssistantState.Thinking -> "Thinking"
-        ChatUiState.AssistantState.CheckingSources -> "Checking sources"
-        ChatUiState.AssistantState.Generating -> "Generating response".takeIf {
+        ChatUiState.AssistantState.Thinking -> stringResource(R.string.zyn_reply_thinking)
+        ChatUiState.AssistantState.CheckingSources -> stringResource(R.string.zyn_reply_checking_sources)
+        ChatUiState.AssistantState.Generating -> stringResource(R.string.zyn_reply_generating).takeIf {
             assistantMessage == null || assistantMessage.content.isEmpty()
         }
 
         else -> null
     }
     if (text != null) {
-        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
             AITypingIndicator(
                 modifier = modifier,
-                label = { Text(text = text) },
+                label = {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
             )
         }
     }

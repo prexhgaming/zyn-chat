@@ -114,9 +114,12 @@ public fun AiChatApp(
                         scope.launch { drawerState.close() }
                     },
                     onUserInfoClick = {
-                        // TODO: Navigate to settings
+                        // Profile, Providers, Routing and Search are presentation only in this phase.
                         scope.launch { drawerState.close() }
                     },
+                    onProvidersClick = { scope.launch { drawerState.close() } },
+                    onRoutingClick = { scope.launch { drawerState.close() } },
+                    onSearchClick = { },
                 )
             }
         },
@@ -172,4 +175,4 @@ public fun AiChatApp(
     }
 }
 
-private const val DRAWER_SCRIM_ALPHA = 0.5f
+private const val DRAWER_SCRIM_ALPHA = 0.32f
