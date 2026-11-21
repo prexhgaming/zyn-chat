@@ -16,7 +16,6 @@
 
 package com.zyn.chat.app.data.chat
 
-import android.content.Context
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -69,8 +68,7 @@ public data class StoredConversation(
  * All calls touch the disk and must be made off the main thread.
  */
 internal class ConversationStore(
-    context: Context,
-    private val directory: File = File(context.filesDir, CONVERSATIONS_DIRECTORY),
+    private val directory: File,
 ) {
 
     /**
@@ -138,10 +136,12 @@ internal class ConversationStore(
     private fun fileFor(id: String): File = File(directory, "${id.toFileName()}.$JSON_EXTENSION")
 
     private companion object {
-        const val CONVERSATIONS_DIRECTORY = "conversations"
         const val JSON_EXTENSION = "json"
     }
 }
+
+/** The folder conversations are kept in, given an application `filesDir`. */
+internal fun conversationsDirectory(filesDir: File): File = File(filesDir, "conversations")
 
 /** Conversation ids are channel ids and may contain separators, so they are flattened for a file name. */
 private fun String.toFileName(): String = map { character ->

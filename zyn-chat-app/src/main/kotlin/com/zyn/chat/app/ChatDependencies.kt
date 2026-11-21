@@ -21,6 +21,7 @@ import com.squareup.moshi.Moshi
 import com.zyn.chat.app.data.api.ChatAiApi
 import com.zyn.chat.app.data.chat.ConversationStore
 import com.zyn.chat.app.data.chat.ProviderChatEngine
+import com.zyn.chat.app.data.chat.conversationsDirectory
 import com.zyn.chat.app.data.providers.AiProviderClient
 import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.data.providers.ProviderRepository
@@ -92,6 +93,8 @@ public class ChatDependencies(
             httpClient = providerHttpClient,
             moshi = moshi,
         )
-        conversationRepository = ConversationRepository(ConversationStore(context))
+        conversationRepository = ConversationRepository(
+            ConversationStore(conversationsDirectory(context.filesDir)),
+        )
     }
 }

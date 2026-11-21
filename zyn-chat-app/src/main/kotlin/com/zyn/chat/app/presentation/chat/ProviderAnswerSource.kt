@@ -28,6 +28,9 @@ import com.zyn.chat.app.domain.chat.ChatChunk
 import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.domain.chat.ChatRequest
 import com.zyn.chat.app.domain.chat.ChatTurn
+import com.zyn.chat.app.domain.chat.ContextBudget
+import com.zyn.chat.app.domain.chat.ContextBudget.estimateTokens
+import io.getstream.log.taggedLogger
 import kotlinx.coroutines.flow.Flow
 
 /** The provider and model an answer will be asked from. */
@@ -55,6 +58,8 @@ internal class ProviderAnswerSource(
     private val chatEngine: ChatEngine,
     private val context: Context,
 ) {
+
+    private val logger by taggedLogger("ContextBudget")
 
     /** The provider and model to answer with, or `null` when the app must use the legacy path. */
     fun currentSelection(): ProviderSelection? {
@@ -105,8 +110,23 @@ internal class ProviderAnswerSource(
         model = selection.model,
         apiKey = apiKeyStore.get(selection.provider.id),
         systemPrompt = SYSTEM_PROMPT,
-        messages = history,
+        messages = fitted(selection.model, history),
     )
+
+    /**
+     * The conversation trimmed to the model's window, so a long chat keeps working instead of being
+     * rejected for being too large.
+     */
+    private fun fitted(model: AiModel, history: List<ChatTurn>): List<ChatTurn> {
+        val budgeted = ContextBudget.fit(
+            turns = history,
+            contextWindow = model.contextWindowTokens?.minus(estimateTokens(SYSTEM_PROMPT)),
+        )
+        if (budgeted.isTruncated) {
+            logger.d { "Trimmed ${budgeted.droppedTurns} older turns to fit the context window" }
+        }
+        return budgeted.turns
+    }
 
     private companion object {
         const val LOCAL_CONVERSATION = "local"

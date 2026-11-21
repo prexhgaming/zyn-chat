@@ -103,7 +103,7 @@ jobs:
       - name: Run unit tests
         run: |
           chmod +x ./gradlew
-          ./gradlew :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest --stacktrace
+          ./gradlew :zyn-chat-app:testDebugUnitTest :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest --stacktrace
 
       - name: Upload test reports
         uses: actions/upload-artifact@v4
