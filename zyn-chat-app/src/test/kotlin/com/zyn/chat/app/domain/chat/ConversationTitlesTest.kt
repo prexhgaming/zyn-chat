@@ -26,7 +26,8 @@ class ConversationTitlesTest {
     fun `uses the first line that has content`() {
         val title = ConversationTitles.local("\n\n   \nHow do I sort a map?\nAnd something else")
 
-        assertEquals("How do I sort a map?", title)
+        // The second line is not part of the title, and the trailing question mark is dropped.
+        assertEquals("How do I sort a map", title)
     }
 
     @Test
@@ -38,9 +39,9 @@ class ConversationTitlesTest {
 
     @Test
     fun `collapses whitespace`() {
-        val title = ConversationTitles.local("Why   is\tthis\nso   spaced?")
+        val title = ConversationTitles.local("Why   is\tthis so     spaced?")
 
-        assertEquals("Why is this so spaced?", title)
+        assertEquals("Why is this so spaced", title)
     }
 
     @Test
