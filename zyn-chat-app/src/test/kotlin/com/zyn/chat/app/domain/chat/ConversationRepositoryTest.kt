@@ -174,4 +174,30 @@ class ConversationRepositoryTest {
 
         assertEquals(50, ids.toSet().size)
     }
+
+    @Test
+    fun `a stored conversation reports its title and model back`() = runBlocking {
+        record("chat-a", "How do I sort a map in Kotlin?")
+
+        val stored = requireNotNull(repository.conversation("chat-a"))
+
+        assertEquals("How do I sort a map in Kotlin", stored.title)
+        assertTrue(stored.modelId?.endsWith("gpt-4o-mini") == true)
+    }
+
+    @Test
+    fun `an unknown conversation reports nothing back`() = runBlocking {
+        assertEquals(null, repository.conversation(newConversationId()))
+    }
+
+    @Test
+    fun `a channel id is recognised and a storage id is not`() {
+        // The distinction the resume crash came down to: Stream only accepts the first kind.
+        assertTrue(isChannelId("messaging:abc-123"))
+        assertTrue(isChannelId("livestream:room"))
+
+        assertFalse(isChannelId(newConversationId()))
+        assertFalse(isChannelId("abc-123"))
+        assertFalse(isChannelId(null))
+    }
 }
