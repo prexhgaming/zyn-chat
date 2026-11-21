@@ -147,4 +147,28 @@ class ModelCapabilitiesTest {
         assertTrue(priced.isFree)
         assertFalse(paid.isFree)
     }
+
+    @Test
+    fun `a model known to take pictures attaches them without a word`() {
+        assertEquals(
+            ImageAttachmentDecision.Allowed,
+            ModelCapabilities.textAndImages().imageAttachmentDecision(),
+        )
+    }
+
+    @Test
+    fun `a text-only model is blocked from pictures rather than merely warned`() {
+        assertEquals(
+            ImageAttachmentDecision.Blocked,
+            ModelCapabilities.textOnly().imageAttachmentDecision(),
+        )
+    }
+
+    @Test
+    fun `an unknown model is allowed with a warning, never blocked on a guess`() {
+        assertEquals(
+            ImageAttachmentDecision.Warn,
+            ModelCapabilities.UNKNOWN.imageAttachmentDecision(),
+        )
+    }
 }

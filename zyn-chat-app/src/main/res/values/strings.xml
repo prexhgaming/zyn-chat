@@ -138,6 +138,13 @@
     <string name="zyn_conversation_delete_message">\"%1$s\" and everything it asked will be deleted from this device.</string>
     <string name="zyn_conversation_delete_confirm">Delete</string>
 
+    <!-- Image attachments and the picture viewer. -->
+    <string name="zyn_composer_image_this_model">This model</string>
+    <string name="zyn_composer_image_blocked">%1$s can\'t read pictures. Pick a model that can, or send it as a file.</string>
+    <string name="zyn_composer_image_unknown">This model may not be able to read pictures, so sending one might fail.</string>
+    <string name="zyn_image_preview_close">Close picture</string>
+    <string name="zyn_message_image">Picture</string>
+
     <!-- Crash reporter. -->
     <string name="zyn_crash_title">Zyn Chat stopped</string>
     <string name="zyn_crash_message">The app hit an unexpected error. The details below are what to send on, and copying them is enough for it to be fixed.</string>

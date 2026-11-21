@@ -58,6 +58,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.zyn.chat.app.R
+import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import com.zyn.chat.app.ui.chat.speech.SpeechErrorReason
 import com.zyn.chat.app.ui.chat.speech.rememberSpeechInput
 import com.zyn.chat.app.ui.theme.ComposerShape
@@ -83,6 +84,8 @@ import kotlinx.coroutines.launch
  * @param isGenerating Whether the assistant is currently generating a response.
  * @param modelName Name of the active model, or `null` when none is selected.
  * @param onModelClick Invoked when the model pill is tapped, to open the model picker.
+ * @param imageDecision What to do about pictures with the selected model: attach them, refuse them
+ *   with an explanation, or allow them with a warning when the model's abilities are not known.
  * @param modifier Applied to the composer.
  */
 @Composable
@@ -92,6 +95,7 @@ fun ZynComposer(
     isGenerating: Boolean,
     modelName: String?,
     onModelClick: () -> Unit,
+    imageDecision: ImageAttachmentDecision = ImageAttachmentDecision.Warn,
     modifier: Modifier = Modifier,
 ) {
     var messageData by rememberSaveable(stateSaver = MessageData.Saver) {
@@ -106,10 +110,25 @@ fun ZynComposer(
     val permissionMessage = stringResource(R.string.zyn_composer_mic_permission)
     val speechErrors = speechErrorMessages()
 
+    // Copy for the two cases where pictures may not be usable with the selected model.
+    val modelLabel = modelName ?: stringResource(R.string.zyn_composer_image_this_model)
+    val imageBlockedMessage = stringResource(R.string.zyn_composer_image_blocked, modelLabel)
+    val imageUnknownMessage = stringResource(R.string.zyn_composer_image_unknown)
+
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MAX_ATTACHMENTS),
     ) { uris ->
-        messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+
+        if (imageDecision == ImageAttachmentDecision.Blocked) {
+            // Nothing is staged for a model that cannot read pictures; the reason is shown instead.
+            scope.launch { snackbarHostState.showSnackbar(imageBlockedMessage) }
+        } else {
+            if (imageDecision == ImageAttachmentDecision.Warn) {
+                scope.launch { snackbarHostState.showSnackbar(imageUnknownMessage) }
+            }
+            messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
+        }
     }
 
     val documentPicker = rememberLauncherForActivityResult(
@@ -189,15 +208,6 @@ fun ZynComposer(
     ) {
         SnackbarHost(hostState = snackbarHostState)
 
-        if (messageData.attachments.isNotEmpty()) {
-            StagedAttachments(
-                attachments = messageData.attachments,
-                onRemove = { uri ->
-                    messageData = messageData.copy(attachments = messageData.attachments - uri)
-                },
-            )
-        }
-
         Surface(
             shape = ComposerShape,
             color = MaterialTheme.colorScheme.surface,
@@ -205,6 +215,18 @@ fun ZynComposer(
             shadowElevation = 1.dp,
         ) {
             Column {
+                // Staged attachments sit inside the field itself, so they read as part of what is
+                // being written rather than floating above the composer.
+                if (messageData.attachments.isNotEmpty()) {
+                    StagedAttachments(
+                        attachments = messageData.attachments,
+                        onRemove = { uri ->
+                            messageData = messageData.copy(attachments = messageData.attachments - uri)
+                        },
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    )
+                }
+
                 ComposerTextField(
                     text = messageData.text,
                     enabled = !isGenerating,
@@ -226,11 +248,16 @@ fun ZynComposer(
                     AttachmentButton(
                         enabled = !isGenerating,
                         onPhotosClick = {
-                            photoPicker.launch(
-                                PickVisualMediaRequest(
-                                    mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
-                                ),
-                            )
+                            if (imageDecision == ImageAttachmentDecision.Blocked) {
+                                // Explain instead of opening a picker that could not be used.
+                                scope.launch { snackbarHostState.showSnackbar(imageBlockedMessage) }
+                            } else {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(
+                                        mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                    ),
+                                )
+                            }
                         },
                         onFilesClick = { documentPicker.launch(DOCUMENT_MIME_TYPES) },
                     )

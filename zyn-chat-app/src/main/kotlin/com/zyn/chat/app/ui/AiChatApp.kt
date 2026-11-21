@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.data.providers.ApiKeyStore
+import com.zyn.chat.app.data.providers.ImageAttachmentDecision
+import com.zyn.chat.app.data.providers.imageAttachmentDecision
 import com.zyn.chat.app.di.ConversationListViewModelFactory
 import com.zyn.chat.app.domain.chat.newConversationId
 import com.zyn.chat.app.presentation.conversations.ConversationListViewModel
@@ -235,6 +237,10 @@ public fun AiChatApp(
                         },
                         modelName = providersState.selectedModel?.displayName,
                         onModelClick = { showModelPicker = true },
+                        imageAttachmentDecision = providersState.selectedModel
+                            ?.capabilities
+                            ?.imageAttachmentDecision()
+                            ?: ImageAttachmentDecision.Warn,
                     )
                 }
             }

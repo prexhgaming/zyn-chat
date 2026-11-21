@@ -16,6 +16,7 @@
 
 package com.zyn.chat.app.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,25 +28,34 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.presentation.chat.ChatUiState
+import com.zyn.chat.app.ui.chat.ImagePreviewDialog
+import com.zyn.chat.app.ui.chat.imageAttachmentsOf
 import com.zyn.chat.app.ui.theme.BubbleShape
 import com.zyn.chat.compose.ui.component.AIMessageParts
 import com.zyn.chat.compose.ui.component.StreamingText
 import io.getstream.chat.android.compose.state.messages.attachments.AttachmentState
 import io.getstream.chat.android.compose.ui.attachments.content.MediaAttachmentContent
 import io.getstream.chat.android.compose.ui.theme.ChatTheme
+import io.getstream.chat.android.models.Attachment
 import io.getstream.chat.android.models.Message
 
 /**
  * Displays a single chat message.
  *
  * The assistant answers as plain, full-width text; the person's own messages sit on the right in a
- * soft bubble. Sharing the same text styles keeps the two sides visually consistent.
+ * soft bubble. Sharing the same text styles keeps the two sides visually consistent. Attachments
+ * appear on both sides — a picture the person attached and a picture an answer refers to are both
+ * worth seeing — and tapping one opens it full screen.
  *
  * @param message The message to display.
  * @param modifier Applied to the message.
@@ -57,28 +67,45 @@ public fun ChatMessageItem(
 ) {
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * MAX_BUBBLE_FRACTION).dp
 
+    // The picture currently shown full screen, if any.
+    var previewImage by remember { mutableStateOf<Attachment?>(null) }
+    val openImage: (Attachment) -> Unit = { attachment -> previewImage = attachment }
+
     SelectionContainer(modifier = modifier) {
         when (message.role) {
-            is ChatUiState.Message.Role.Assistant -> AssistantMessage(message = message)
+            is ChatUiState.Message.Role.Assistant -> AssistantMessage(
+                message = message,
+                onImageClick = openImage,
+            )
 
             is ChatUiState.Message.Role.User -> BubbleMessage(
                 message = message,
                 maxBubbleWidth = maxBubbleWidth,
                 alignment = Alignment.CenterEnd,
+                onImageClick = openImage,
             )
 
             is ChatUiState.Message.Role.Other -> BubbleMessage(
                 message = message,
                 maxBubbleWidth = maxBubbleWidth,
                 alignment = Alignment.CenterStart,
+                onImageClick = openImage,
             )
         }
+    }
+
+    previewImage?.let { attachment ->
+        ImagePreviewDialog(
+            attachment = attachment,
+            onDismiss = { previewImage = null },
+        )
     }
 }
 
 @Composable
 private fun AssistantMessage(
     message: ChatUiState.Message,
+    onImageClick: (Attachment) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -88,6 +115,13 @@ private fun AssistantMessage(
         if (message.parts.isNotEmpty()) {
             AIMessageParts(parts = message.parts)
         }
+
+        MessageAttachments(
+            message = message,
+            isMine = false,
+            onImageClick = onImageClick,
+        )
+
         if (message.content.isNotBlank()) {
             StreamingText(
                 text = message.content,
@@ -102,6 +136,7 @@ private fun BubbleMessage(
     message: ChatUiState.Message,
     maxBubbleWidth: Dp,
     alignment: Alignment,
+    onImageClick: (Attachment) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -109,19 +144,11 @@ private fun BubbleMessage(
         contentAlignment = alignment,
     ) {
         MessageBubble(modifier = Modifier.widthIn(max = maxBubbleWidth)) {
-            if (message.attachments.isNotEmpty()) {
-                ChatTheme {
-                    MediaAttachmentContent(
-                        state = AttachmentState(
-                            message = Message(
-                                text = message.content,
-                                attachments = message.attachments,
-                            ),
-                            isMine = true,
-                        ),
-                    )
-                }
-            }
+            MessageAttachments(
+                message = message,
+                isMine = true,
+                onImageClick = onImageClick,
+            )
 
             if (message.content.isNotBlank()) {
                 StreamingText(
@@ -129,6 +156,47 @@ private fun BubbleMessage(
                     animate = false,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Everything attached to a message.
+ *
+ * Renders nothing when there is nothing attached. When the message carries at least one picture the
+ * whole group becomes tappable and opens that picture, which is the interaction people expect from a
+ * photo in a conversation.
+ */
+@Composable
+private fun MessageAttachments(
+    message: ChatUiState.Message,
+    isMine: Boolean,
+    onImageClick: (Attachment) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (message.attachments.isEmpty()) return
+
+    val pictures = imageAttachmentsOf(message)
+
+    ChatTheme {
+        Box(
+            modifier = modifier.then(
+                if (pictures.isEmpty()) {
+                    Modifier
+                } else {
+                    Modifier.clickable { onImageClick(pictures.first()) }
+                },
+            ),
+        ) {
+            MediaAttachmentContent(
+                state = AttachmentState(
+                    message = Message(
+                        text = message.content,
+                        attachments = message.attachments,
+                    ),
+                    isMine = isMine,
+                ),
+            )
         }
     }
 }

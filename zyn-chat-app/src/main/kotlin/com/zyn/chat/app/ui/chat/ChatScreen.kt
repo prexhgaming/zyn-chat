@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.R
+import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import com.zyn.chat.app.di.ChatViewModelFactory
 import com.zyn.chat.app.presentation.chat.ChatUiState
 import com.zyn.chat.app.presentation.chat.ChatUiState.Action
@@ -78,6 +79,7 @@ fun ChatScreen(
     onChatDeleted: () -> Unit = {},
     modelName: String? = null,
     onModelClick: () -> Unit = {},
+    imageAttachmentDecision: ImageAttachmentDecision = ImageAttachmentDecision.Warn,
 ) {
     val appContext = LocalContext.current.applicationContext
     val chatViewModel = viewModel<ChatViewModel>(
@@ -150,6 +152,7 @@ fun ChatScreen(
                     isGenerating = isAssistantBusy,
                     modelName = modelName,
                     onModelClick = onModelClick,
+                    imageDecision = imageAttachmentDecision,
                 )
             }
         },
