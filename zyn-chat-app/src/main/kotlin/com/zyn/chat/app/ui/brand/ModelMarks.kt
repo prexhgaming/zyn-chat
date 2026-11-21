@@ -38,6 +38,11 @@ public fun markOf(brand: ModelBrand): ImageVector? = when (brand) {
     ModelBrand.DeepSeek -> ZynIcons.BrandDeepSeek
     ModelBrand.Qwen -> ZynIcons.BrandQwen
     ModelBrand.XAI -> ZynIcons.BrandXAI
+    ModelBrand.Cohere -> ZynIcons.BrandCohere
+    ModelBrand.Perplexity -> ZynIcons.BrandPerplexity
+    ModelBrand.Nvidia -> ZynIcons.BrandNvidia
+    ModelBrand.Amazon -> ZynIcons.BrandAmazon
+    ModelBrand.Ai2 -> ZynIcons.BrandAi2
     ModelBrand.Microsoft -> ZynIcons.BrandMicrosoft
     ModelBrand.Generic -> null
 }

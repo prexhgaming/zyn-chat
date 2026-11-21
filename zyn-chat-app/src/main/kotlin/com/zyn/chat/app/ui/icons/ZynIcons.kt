@@ -199,6 +199,44 @@ public object ZynIcons {
         roundRect(13.2f, 13.2f, 6.6f, 6.6f, 0.8f)
     }
 
+    /** Mark for Cohere (Command) models. */
+    public val BrandCohere: ImageVector = outline("ZynBrandCohere") {
+        moveTo(12f, 3.6f)
+        lineTo(20.4f, 12f)
+        lineTo(12f, 20.4f)
+        lineTo(3.6f, 12f)
+        close()
+        circle(12f, 12f, 3.2f)
+    }
+
+    /** Mark for Perplexity (Sonar) models. */
+    public val BrandPerplexity: ImageVector = outline("ZynBrandPerplexity") {
+        circle(12f, 9.4f, 4.8f)
+        segment(12f, 14.2f, 12f, 20.4f)
+    }
+
+    /** Mark for Nvidia (Nemotron) models. */
+    public val BrandNvidia: ImageVector = outline("ZynBrandNvidia") {
+        moveTo(3.4f, 12f)
+        quadTo(12f, 4.6f, 20.6f, 12f)
+        quadTo(12f, 19.4f, 3.4f, 12f)
+        close()
+        circle(12f, 12f, 2.6f)
+    }
+
+    /** Mark for Amazon (Nova, Titan) models. */
+    public val BrandAmazon: ImageVector = outline("ZynBrandAmazon") {
+        moveTo(4.6f, 14.4f)
+        quadTo(12f, 20.8f, 19.4f, 14.4f)
+        segment(19.4f, 14.4f, 17.2f, 16.8f)
+    }
+
+    /** Mark for Allen Institute (OLMo) models. */
+    public val BrandAi2: ImageVector = outline("ZynBrandAi2") {
+        circle(12f, 12f, 7.4f)
+        circle(12f, 12f, 2.6f)
+    }
+
     /** Tick. Used as the selection indicator on the chosen model. */
     public val Check: ImageVector = outline("ZynCheck") {
         moveTo(5.8f, 12.4f)
