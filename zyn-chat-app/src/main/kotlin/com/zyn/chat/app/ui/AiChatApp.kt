@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zyn.chat.app.ChatDependencies
-import com.zyn.chat.app.data.providers.ProviderRepository
+import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.di.ConversationListViewModelFactory
 import com.zyn.chat.app.presentation.conversations.ConversationListViewModel
 import com.zyn.chat.app.presentation.providers.ProvidersViewModel
@@ -60,6 +60,7 @@ import com.zyn.chat.app.ui.chat.ChatScreen
 import com.zyn.chat.app.ui.chat.ModelPickerSheet
 import com.zyn.chat.app.ui.components.ChatDrawer
 import com.zyn.chat.app.ui.components.ViewModelStore
+import com.zyn.chat.app.ui.providers.ProvidersScreen
 import io.getstream.chat.android.client.ChatClient
 import kotlinx.coroutines.launch
 
@@ -90,14 +91,20 @@ public fun AiChatApp(
     val user by ChatClient.instance().clientState.user.collectAsState()
 
     val appContext = LocalContext.current.applicationContext
-    val providerRepository = remember(appContext) { ProviderRepository(appContext) }
+    val apiKeyStore = remember(appContext) { ApiKeyStore(appContext) }
     val providersViewModel = viewModel<ProvidersViewModel>(
-        factory = ProvidersViewModelFactory(providerRepository),
+        factory = ProvidersViewModelFactory(
+            repository = chatDependencies.providerRepository,
+            client = chatDependencies.providerClient,
+            keyStore = apiKeyStore,
+        ),
     )
     val providersState by providersViewModel.uiState.collectAsState()
+    val providerSyncState by providersViewModel.syncState.collectAsState()
 
     var selectedConversationId by rememberSaveable { mutableStateOf<String?>(null) }
     var showModelPicker by rememberSaveable { mutableStateOf(false) }
+    var showProviders by rememberSaveable { mutableStateOf(false) }
 
     /**
      * Revision counter for new chats. Incremented each time "New chat" is clicked.
@@ -107,11 +114,12 @@ public fun AiChatApp(
 
     /**
      * Provider management, shared by the drawer's "Providers" entry and the "Providers" action in
-     * the model picker header. Provider and key management arrive with the integrations, so both
-     * entry points currently route here and do nothing else.
+     * the model picker header. Both route to the single providers screen, so there is one place where
+     * providers and keys are managed.
      */
     val onManageProviders: () -> Unit = {
         showModelPicker = false
+        showProviders = true
     }
 
     // Hide the keyboard when the drawer opens.
@@ -208,14 +216,38 @@ public fun AiChatApp(
             }
 
             // The drawer sheet sits off-screen when closed, so its own drag handle is not hittable.
-            // This narrow strip restores the platform swipe-from-edge gesture for opening it.
-            if (!drawerState.isOpen) {
+            // This narrow strip restores the platform swipe-from-edge gesture for opening it. It is
+            // disabled behind the providers screen, where it would swallow taps meant for the back
+            // button underneath it.
+            if (!drawerState.isOpen && !showProviders) {
                 DrawerEdgeSwipe(
                     onSwipe = {
                         keyboardController?.hide()
                         scope.launch { drawerState.open() }
                     },
                 )
+            }
+
+            if (showProviders) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    ProvidersScreen(
+                        state = providersState,
+                        syncState = providerSyncState,
+                        onBack = { showProviders = false },
+                        onAddProvider = providersViewModel::addProvider,
+                        onRefreshModels = providersViewModel::refreshModels,
+                        onReplaceKey = providersViewModel::replaceKey,
+                        onRemoveProvider = providersViewModel::removeProvider,
+                        onSetEnabled = providersViewModel::setEnabled,
+                        onDismissResult = providersViewModel::consumeResult,
+                    )
+                }
+
+                // Registered after the chat screen's own handlers, so back leaves this screen first.
+                BackHandler { showProviders = false }
             }
         }
     }

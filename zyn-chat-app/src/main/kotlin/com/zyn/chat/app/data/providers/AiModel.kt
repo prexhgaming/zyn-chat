@@ -46,6 +46,24 @@ public data class AiModel(
 }
 
 /**
+ * Selection id of a model, unique across providers: the provider id and the provider-side slug.
+ *
+ * Model ids are persisted (the selection, each conversation's model), so they must stay unique even
+ * when two providers offer the same slug.
+ *
+ * @param providerId Id of the provider that offers the model.
+ * @param slug Provider-side model identifier.
+ */
+public fun modelKey(providerId: String, slug: String): String = "$providerId$MODEL_KEY_SEPARATOR$slug"
+
+/**
+ * Provider-side slug of a selection id produced by [modelKey].
+ *
+ * @param key A model selection id.
+ */
+public fun modelSlug(key: String): String = key.substringAfter(MODEL_KEY_SEPARATOR)
+
+/**
  * Formats a token count the way model pickers usually show it: `8K`, `128K`, `1.0M`.
  *
  * @param tokens Token count to format.
@@ -56,5 +74,6 @@ public fun formatContextWindow(tokens: Int): String = when {
     else -> tokens.toString()
 }
 
+private const val MODEL_KEY_SEPARATOR = ":"
 private const val THOUSAND = 1_000
 private const val MILLION = 1_000_000

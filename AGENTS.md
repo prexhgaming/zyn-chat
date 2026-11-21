@@ -47,14 +47,22 @@ Stream license headers stay in place (see `LICENSE`).
   sheet, animated scrim and an edge-swipe strip in `ui/AiChatApp.kt`.
 - Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt` and `DrawerConversationItem.kt`.
 - User-facing text goes through `res/values/strings.xml` (names prefixed `zyn_`).
-- Provider and model state: `data/providers/` (`AiProvider`, `AiModel`, `ProvidersState`,
-  `ProviderRepository` — SharedPreferences-backed selection) and
-  `presentation/providers/ProvidersViewModel.kt`. **Providers start empty by design**: nothing may
-  invent a provider or a model list. Integrations call `registerProvider` / `setProviderEnabled` /
-  `removeProvider` once they exist.
+- Provider and model state: `data/providers/` — `ProviderCatalog` (known OpenAI-compatible endpoints),
+  `ProviderStorage` (JSON in SharedPreferences), `ApiKeyStore` (Android Keystore, AES-GCM),
+  `ProviderRepository` (the single writer of providers and selection) and `AiProviderClient`
+  (`/models` over OkHttp). **Providers start empty by design**: nothing may invent a provider or a
+  model list — the only way in is `ProviderRepository.addProvider`, driven by the providers screen.
+- **Credentials never leak**: `di/NetworkModule.kt` redacts `Authorization` / `x-api-key` /
+  `api-key` / `x-goog-api-key` on the single logging interceptor, and logging is only enabled in
+  debug builds (`App.kt` passes `BuildConfig.DEBUG`). Every provider authenticates with a **header,
+  never a query parameter** — a key in the URL would bypass redaction, so never add a provider that
+  passes its key in the query string. API keys are device-local and are never sent to any backend
+  other than the provider's own host.
 - The drawer's "Providers" entry and the "Providers" action in the model picker header both call the
-  single `onManageProviders` action hoisted in `ui/AiChatApp.kt` (currently a no-op) — never add a
-  second provider-management path or screen.
+  single `onManageProviders` action hoisted in `ui/AiChatApp.kt`, which opens the one
+  `ui/providers/ProvidersScreen.kt`. Adding a provider validates the key against that provider's real
+  `/models` endpoint before anything is saved. **Never add a second provider-management path or
+  screen.**
 - **Presentation only for now**: routing, the drawer search action, the profile row.
 
 ## Commands

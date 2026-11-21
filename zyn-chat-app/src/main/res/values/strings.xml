@@ -74,4 +74,50 @@
     <string name="zyn_models_empty_action">Add provider</string>
     <string name="zyn_models_free">FREE</string>
     <string name="zyn_models_selected">Selected</string>
+
+    <!-- Providers screen. -->
+    <string name="zyn_providers_title">Providers</string>
+    <string name="zyn_providers_add">Add provider</string>
+    <string name="zyn_providers_back">Back</string>
+    <string name="zyn_providers_empty_title">No providers yet</string>
+    <string name="zyn_providers_empty_message">Zyn Chat runs on your own API keys. Add a provider and its models become available to chat with.</string>
+    <string name="zyn_providers_empty_action">Add provider</string>
+    <string name="zyn_providers_model_count">%1$d models</string>
+    <string name="zyn_providers_synced">%1$d models found</string>
+    <string name="zyn_providers_key_missing">API key required</string>
+    <string name="zyn_providers_key_not_required">No key needed</string>
+    <string name="zyn_providers_add_key">Add key</string>
+    <string name="zyn_providers_replace_key">Replace key</string>
+    <string name="zyn_providers_replace_key_title">Key for %1$s</string>
+    <string name="zyn_providers_refresh">Refresh models</string>
+    <string name="zyn_providers_remove">Remove</string>
+    <string name="zyn_providers_remove_title">Remove %1$s?</string>
+    <string name="zyn_providers_remove_message">Its models and its saved key will be deleted from this device.</string>
+
+    <!-- Add-provider flow. -->
+    <string name="zyn_providers_catalog_title">Add a provider</string>
+    <string name="zyn_providers_catalog_search">Search providers</string>
+    <string name="zyn_providers_group_cloud">Cloud</string>
+    <string name="zyn_providers_group_local">On your network</string>
+    <string name="zyn_providers_group_custom">Custom</string>
+    <string name="zyn_providers_setup_title">Connect %1$s</string>
+    <string name="zyn_providers_key_label">API key</string>
+    <string name="zyn_providers_key_hint">Stored encrypted on this device and sent only to this provider.</string>
+    <string name="zyn_providers_key_show">Show</string>
+    <string name="zyn_providers_key_hide">Hide</string>
+    <string name="zyn_providers_base_url_label">Base URL</string>
+    <string name="zyn_providers_name_label">Name</string>
+    <string name="zyn_providers_validate">Validate &amp; save</string>
+    <string name="zyn_providers_get_key">Get an API key</string>
+
+    <!-- Provider failures. -->
+    <string name="zyn_provider_error_invalid_key">That key was rejected. Check it and try again.</string>
+    <string name="zyn_provider_error_forbidden">This account is not allowed to use that endpoint.</string>
+    <string name="zyn_provider_error_rate_limited">Too many requests, or the account is out of quota. Try again shortly.</string>
+    <string name="zyn_provider_error_model_not_found">That provider doesn\'t offer this model.</string>
+    <string name="zyn_provider_error_context_too_large">This conversation is too long for the model\'s context window.</string>
+    <string name="zyn_provider_error_provider_down">The provider is having trouble right now. Try again.</string>
+    <string name="zyn_provider_error_no_connection">Can\'t reach the provider. Check your connection.</string>
+    <string name="zyn_provider_error_bad_response">The provider sent a response Zyn Chat couldn\'t read.</string>
+    <string name="zyn_provider_error_unknown">Something went wrong with the provider.</string>
 </resources>

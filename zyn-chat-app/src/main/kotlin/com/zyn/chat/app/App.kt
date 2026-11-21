@@ -36,6 +36,7 @@ class App : Application() {
         chatDependencies = ChatDependencies(
             baseUrl = "http://10.0.2.2:3000", // Android emulator localhost
             enableLogging = BuildConfig.DEBUG,
+            context = applicationContext,
         )
 
         initializeStreamChat()

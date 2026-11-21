@@ -129,6 +129,52 @@ public object ZynIcons {
         lineTo(18.4f, 7.8f)
     }
 
+    /** Arrow pointing left. Used to leave a pushed screen. */
+    public val Back: ImageVector = outline("ZynBack") {
+        segment(19.2f, 12f, 5.2f, 12f)
+        moveTo(11.6f, 5.6f)
+        lineTo(5.2f, 12f)
+        lineTo(11.6f, 18.4f)
+    }
+
+    /** Circular arrow. Used to re-sync a provider's model list. */
+    public val Refresh: ImageVector = outline("ZynRefresh") {
+        moveTo(19.4f, 12f)
+        curveTo(19.4f, 16.1, 16.1f, 19.4f, 12f, 19.4f)
+        curveTo(7.9f, 19.4f, 4.6f, 16.1f, 4.6f, 12f)
+        curveTo(4.6f, 7.9f, 7.9f, 4.6f, 12f, 4.6f)
+        curveTo(14.6f, 4.6f, 16.8f, 6, 18.1f, 8.1f)
+        moveTo(19.4f, 4.4f)
+        lineTo(19.4f, 9.2f)
+        lineTo(14.6f, 9.2f)
+    }
+
+    /** Rounded key. Used by the API key field and the "key missing" state. */
+    public val Key: ImageVector = outline("ZynKey") {
+        circle(8.4f, 12f, 3.9f)
+        segment(12.3f, 12f, 20.2f, 12f)
+        segment(17.4f, 12f, 17.4f, 15.1f)
+        segment(20.2f, 12f, 20.2f, 14.6f)
+    }
+
+    /** Three dots. Used by the overflow action on a provider card. */
+    public val More: ImageVector = solid("ZynMore") {
+        circle(5.4f, 12f, 1.5f)
+        circle(12f, 12f, 1.5f)
+        circle(18.6f, 12f, 1.5f)
+    }
+
+    /** Bin. Used by the remove action. */
+    public val Trash: ImageVector = outline("ZynTrash") {
+        segment(4.6f, 7.4f, 19.4f, 7.4f)
+        segment(9.4f, 7.4f, 9.4f, 4.8f)
+        segment(14.6f, 7.4f, 14.6f, 4.8f)
+        moveTo(6.4f, 7.4f)
+        lineTo(7.6f, 19.6f)
+        lineTo(16.4f, 19.6f)
+        lineTo(17.6f, 7.4f)
+    }
+
     /** Cross. Used to remove a staged attachment. */
     public val Close: ImageVector = outline("ZynClose") {
         segment(6.6f, 6.6f, 17.4f, 17.4f)
