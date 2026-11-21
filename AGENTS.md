@@ -52,6 +52,11 @@ Stream license headers stay in place (see `LICENSE`).
   `ProviderRepository` (the single writer of providers and selection) and `AiProviderClient`
   (`/models` over OkHttp). **Providers start empty by design**: nothing may invent a provider or a
   model list — the only way in is `ProviderRepository.addProvider`, driven by the providers screen.
+- Model metadata: `data/providers/ModelCatalog.kt` **only decorates** what a provider reported — a
+  readable name derived from the slug, a known context window, and the `:free` suffix OpenRouter uses —
+  while `ModelBrands.of(...)` recognises the family for a badge. Unknown values stay `null` (never
+  guess a context window). `ui/components/BrandMark.kt` draws the mark and falls back to initials; the
+  marks are the app's own drawings in `ZynIcons` — never bundle downloaded brand artwork.
 - **Credentials never leak**: `di/NetworkModule.kt` redacts `Authorization` / `x-api-key` /
   `api-key` / `x-goog-api-key` on the single logging interceptor, and logging is only enabled in
   debug builds (`App.kt` passes `BuildConfig.DEBUG`). Every provider authenticates with a **header,

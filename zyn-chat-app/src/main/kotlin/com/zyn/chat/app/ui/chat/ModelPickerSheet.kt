@@ -37,11 +37,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +58,10 @@ import androidx.compose.ui.res.stringResource
 import com.zyn.chat.app.R
 import com.zyn.chat.app.data.providers.AiModel
 import com.zyn.chat.app.data.providers.AiProvider
+import com.zyn.chat.app.data.providers.ModelBrands
 import com.zyn.chat.app.data.providers.ProvidersState
+import com.zyn.chat.app.ui.brand.markOf
+import com.zyn.chat.app.ui.components.BrandMark
 import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.AccentColors
 import com.zyn.chat.app.ui.theme.accent
@@ -85,6 +93,17 @@ internal fun ModelPickerSheet(
     onDismiss: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(),
 ) {
+    var filter by rememberSaveable { mutableStateOf("") }
+    val query = filter.trim()
+    val visibleModels = if (query.isEmpty()) {
+        state.modelsOfCurrentProvider
+    } else {
+        state.modelsOfCurrentProvider.filter { model ->
+            model.slug.contains(query, ignoreCase = true) ||
+                model.displayName.contains(query, ignoreCase = true)
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -106,8 +125,20 @@ internal fun ModelPickerSheet(
                 onProviderSelected = onProviderSelected,
             )
 
+            // Providers can report dozens of models, so the list is filterable. The query matches the
+            // readable name and the provider's own slug.
+            OutlinedTextField(
+                value = filter,
+                onValueChange = { filter = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.zyn_models_filter)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+
             ModelList(
-                models = state.modelsOfCurrentProvider,
+                models = visibleModels,
                 selectedModelId = state.selectedModelId,
                 onModelSelected = onModelSelected,
             )
@@ -199,11 +230,10 @@ private fun ProviderTab(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = ZynIcons.Providers,
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-            tint = if (selected) accent.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        BrandMark(
+            label = provider.name,
+            mark = markOf(ModelBrands.of(provider.id, "")),
+            size = 22.dp,
         )
         Text(
             text = provider.name,
@@ -277,7 +307,11 @@ private fun ModelRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ModelGlyph(accent = accent)
+        BrandMark(
+            label = model.displayName,
+            mark = markOf(ModelBrands.of(model.providerId, model.slug)),
+            size = 38.dp,
+        )
 
         Column(modifier = Modifier.weight(1f)) {
             Row(
@@ -314,24 +348,6 @@ private fun ModelRow(
         }
 
         SelectionIndicator(selected = selected, accent = accent)
-    }
-}
-
-@Composable
-private fun ModelGlyph(accent: AccentColors) {
-    Box(
-        modifier = Modifier
-            .size(38.dp)
-            .clip(RoundedCornerShape(11.dp))
-            .background(accent.tint),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = ZynIcons.ModelBlocks,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = accent.primary,
-        )
     }
 }
 

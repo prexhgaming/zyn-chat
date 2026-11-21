@@ -259,14 +259,14 @@ private fun EmptyProviders(
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.accent.tint),
+                .background(MaterialTheme.accent.tint),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = ZynIcons.Providers,
                 contentDescription = null,
                 modifier = Modifier.size(26.dp),
-                tint = MaterialTheme.colorScheme.accent.primary,
+                tint = MaterialTheme.accent.primary,
             )
         }
 
@@ -289,8 +289,8 @@ private fun EmptyProviders(
         Button(
             onClick = onAdd,
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.accent.primary,
-                contentColor = MaterialTheme.colorScheme.accent.onPrimary,
+                containerColor = MaterialTheme.accent.primary,
+                contentColor = MaterialTheme.accent.onPrimary,
             ),
             modifier = Modifier.padding(top = 20.dp),
         ) {

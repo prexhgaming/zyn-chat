@@ -74,6 +74,7 @@
     <string name="zyn_models_empty_action">Add provider</string>
     <string name="zyn_models_free">FREE</string>
     <string name="zyn_models_selected">Selected</string>
+    <string name="zyn_models_filter">Filter models</string>
 
     <!-- Providers screen. -->
     <string name="zyn_providers_title">Providers</string>

@@ -57,7 +57,7 @@ public fun BrandMark(
     modifier: Modifier = Modifier,
     mark: ImageVector? = null,
     size: Dp = BrandMarkSize,
-    tint: Color = MaterialTheme.colorScheme.accent.primary,
+    tint: Color = MaterialTheme.accent.primary,
 ) {
     val shape = RoundedCornerShape(size / THREE)
 
@@ -65,7 +65,7 @@ public fun BrandMark(
         modifier = modifier
             .size(size)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.accent.tint),
+            .background(MaterialTheme.accent.tint),
         contentAlignment = Alignment.Center,
     ) {
         if (mark != null) {

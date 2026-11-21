@@ -17,7 +17,9 @@
 package com.zyn.chat.app.data.providers
 
 import android.content.Context
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 /**
@@ -42,7 +44,9 @@ internal class ProviderStorage(context: Context) {
         .addLast(KotlinJsonAdapterFactory())
         .build()
 
-    private val providersAdapter = moshi.adapter<List<AiProvider>>()
+    private val providersAdapter: JsonAdapter<List<AiProvider>> = moshi.adapter(
+        Types.newParameterizedType(List::class.java, AiProvider::class.java),
+    )
 
     /** Reads the configured providers, or an empty list when nothing is stored. */
     fun loadProviders(): List<AiProvider> {

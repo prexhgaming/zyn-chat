@@ -122,6 +122,83 @@ public object ZynIcons {
         roundRect(13.4f, 12.9f, 6.7f, 6.7f, 2f)
     }
 
+    // --- Brand marks -------------------------------------------------------------------------
+    // In-house geometric marks for the model families the app can talk to. They are drawn here,
+    // next to the other icons, so they share the vector DSL and stay a single visual family. They
+    // are deliberately abstract: recognisable at 18dp without shipping anyone's trademark artwork.
+    // A model with no mark falls back to initials via `BrandMark(label = ...)`.
+
+    /** Mark for OpenAI models. */
+    public val BrandOpenAI: ImageVector = outline("ZynBrandOpenAI") {
+        circle(12f, 12f, 6.2f)
+        segment(6.7f, 8.9f, 17.3f, 15.1f)
+        segment(6.7f, 15.1f, 17.3f, 8.9f)
+    }
+
+    /** Mark for Anthropic (Claude) models. */
+    public val BrandClaude: ImageVector = outline("ZynBrandClaude") {
+        segment(6.4f, 18.4f, 12f, 5.6f)
+        segment(12f, 5.6f, 17.6f, 18.4f)
+        segment(8.6f, 13.4f, 15.4f, 13.4f)
+    }
+
+    /** Mark for Google (Gemini, Gemma) models. */
+    public val BrandGoogle: ImageVector = solid("ZynBrandGoogle") {
+        moveTo(12f, 3.2f)
+        quadTo(13.6f, 10.4f, 20.8f, 12f)
+        quadTo(13.6f, 13.6f, 12f, 20.8f)
+        quadTo(10.4f, 13.6f, 3.2f, 12f)
+        quadTo(10.4f, 10.4f, 12f, 3.2f)
+        close()
+    }
+
+    /** Mark for Meta (Llama) models. */
+    public val BrandLlama: ImageVector = outline("ZynBrandLlama") {
+        circle(8.6f, 12f, 4.2f)
+        circle(15.4f, 12f, 4.2f)
+    }
+
+    /** Mark for Mistral models. */
+    public val BrandMistral: ImageVector = solid("ZynBrandMistral") {
+        roundRect(5f, 6.2f, 3.6f, 11.6f, 1.2f)
+        roundRect(10.2f, 6.2f, 3.6f, 11.6f, 1.2f)
+        roundRect(15.4f, 6.2f, 3.6f, 11.6f, 1.2f)
+    }
+
+    /** Mark for DeepSeek models. */
+    public val BrandDeepSeek: ImageVector = outline("ZynBrandDeepSeek") {
+        circle(10.2f, 12.4f, 5.6f)
+        moveTo(15.2f, 9.2f)
+        quadTo(20.6f, 8.4f, 20f, 13.2f)
+        quadTo(19.4f, 17f, 15.4f, 17.8f)
+    }
+
+    /** Mark for Qwen models. */
+    public val BrandQwen: ImageVector = outline("ZynBrandQwen") {
+        moveTo(12f, 3.4f)
+        lineTo(19.4f, 7.7f)
+        lineTo(19.4f, 16.3f)
+        lineTo(12f, 20.6f)
+        lineTo(4.6f, 16.3f)
+        lineTo(4.6f, 7.7f)
+        close()
+        circle(12f, 12f, 2.6f)
+    }
+
+    /** Mark for xAI (Grok) models. */
+    public val BrandXAI: ImageVector = outline("ZynBrandXAI") {
+        segment(6.4f, 6.4f, 17.6f, 17.6f)
+        segment(17.6f, 6.4f, 6.4f, 17.6f)
+    }
+
+    /** Mark for Microsoft (Phi) models. */
+    public val BrandMicrosoft: ImageVector = solid("ZynBrandMicrosoft") {
+        roundRect(4.2f, 4.2f, 6.6f, 6.6f, 0.8f)
+        roundRect(13.2f, 4.2f, 6.6f, 6.6f, 0.8f)
+        roundRect(4.2f, 13.2f, 6.6f, 6.6f, 0.8f)
+        roundRect(13.2f, 13.2f, 6.6f, 6.6f, 0.8f)
+    }
+
     /** Tick. Used as the selection indicator on the chosen model. */
     public val Check: ImageVector = outline("ZynCheck") {
         moveTo(5.8f, 12.4f)
@@ -140,10 +217,10 @@ public object ZynIcons {
     /** Circular arrow. Used to re-sync a provider's model list. */
     public val Refresh: ImageVector = outline("ZynRefresh") {
         moveTo(19.4f, 12f)
-        curveTo(19.4f, 16.1, 16.1f, 19.4f, 12f, 19.4f)
+        curveTo(19.4f, 16.1f, 16.1f, 19.4f, 12f, 19.4f)
         curveTo(7.9f, 19.4f, 4.6f, 16.1f, 4.6f, 12f)
         curveTo(4.6f, 7.9f, 7.9f, 4.6f, 12f, 4.6f)
-        curveTo(14.6f, 4.6f, 16.8f, 6, 18.1f, 8.1f)
+        curveTo(14.6f, 4.6f, 16.8f, 6f, 18.1f, 8.1f)
         moveTo(19.4f, 4.4f)
         lineTo(19.4f, 9.2f)
         lineTo(14.6f, 9.2f)

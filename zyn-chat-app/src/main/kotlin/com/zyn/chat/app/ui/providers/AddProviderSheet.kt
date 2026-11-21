@@ -325,15 +325,15 @@ private fun SetupStep(
                 onClick = { onSubmit(name, baseUrl, key.ifBlank { null }) },
                 enabled = !syncState.inProgress && !missingKey && !missingCustom,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.accent.primary,
-                    contentColor = MaterialTheme.colorScheme.accent.onPrimary,
+                    containerColor = MaterialTheme.accent.primary,
+                    contentColor = MaterialTheme.accent.onPrimary,
                 ),
             ) {
                 if (syncState.inProgress) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.accent.onPrimary,
+                        color = MaterialTheme.accent.onPrimary,
                     )
                 } else {
                     Text(
@@ -384,12 +384,12 @@ private fun DocsLink(url: String) {
                 imageVector = ZynIcons.Key,
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                tint = MaterialTheme.colorScheme.accent.primary,
+                tint = MaterialTheme.accent.primary,
             )
             Text(
                 text = stringResource(R.string.zyn_providers_get_key),
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.accent.primary,
+                color = MaterialTheme.accent.primary,
             )
         }
     }
@@ -490,15 +490,15 @@ internal fun ApiKeySheet(
                     onClick = { onSave(key) },
                     enabled = key.isNotBlank() && !inProgress,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.accent.primary,
-                        contentColor = MaterialTheme.colorScheme.accent.onPrimary,
+                        containerColor = MaterialTheme.accent.primary,
+                        contentColor = MaterialTheme.accent.onPrimary,
                     ),
                 ) {
                     if (inProgress) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.accent.onPrimary,
+                            color = MaterialTheme.accent.onPrimary,
                         )
                     } else {
                         Text(

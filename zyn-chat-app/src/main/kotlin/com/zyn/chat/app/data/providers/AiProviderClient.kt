@@ -80,8 +80,9 @@ public class AiProviderClient(
             val parsed = runCatching { modelsAdapter.fromJson(body) }.getOrNull()
                 ?: throw ProviderException(ProviderError.BadResponse, detail = body.take(DETAIL_LIMIT))
 
+            // Only what the provider reported becomes a model; the catalog merely decorates it.
             return parsed.data
-                .map { remote -> remote.toModel(provider.id) }
+                .map { remote -> ModelCatalog.enrich(provider.id, remote.id) }
                 .sortedBy { model -> model.slug.lowercase() }
         }
     }
@@ -105,14 +106,6 @@ public class AiProviderClient(
 
 /** `/models`, appended to the provider's endpoint root. */
 private fun ProviderEndpoint.modelsUrl(): String = "${baseUrl.trimEnd('/')}$MODELS_PATH"
-
-/** Turns a provider's model entry into an app model, with a selection id that is unique per provider. */
-private fun RemoteModel.toModel(providerId: String): AiModel = AiModel(
-    id = modelKey(providerId, id),
-    displayName = id,
-    slug = id,
-    providerId = providerId,
-)
 
 /** Bare minimum of the OpenAI-compatible `/models` payload. */
 private data class ModelsResponse(val data: List<RemoteModel> = emptyList())

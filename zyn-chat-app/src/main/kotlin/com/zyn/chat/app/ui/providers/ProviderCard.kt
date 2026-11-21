@@ -277,7 +277,7 @@ private fun KeyStatus(
                 Text(
                     text = stringResource(R.string.zyn_providers_add_key),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.accent.primary,
+                    color = MaterialTheme.accent.primary,
                 )
             }
         }
