@@ -33,6 +33,20 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:name=".App">
+        <!--
+            Crash reporter. Listed first, and deliberately in its own process: the process that
+            crashed is being torn down, so a screen sharing its process could never be shown. The
+            `:crash` process skips the app's initialisation (see App.onCreate), which is what lets it
+            display a crash that happened during startup.
+        -->
+        <activity
+            android:name=".crash.CrashActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:process=":crash"
+            android:taskAffinity=""
+            android:theme="@style/AppTheme" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

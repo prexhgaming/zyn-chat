@@ -17,7 +17,9 @@
 package com.zyn.chat.app
 
 import android.app.Application
+import android.content.Context
 import android.os.StrictMode
+import com.zyn.chat.app.crash.CrashHandler
 import io.getstream.chat.android.client.ChatClient
 import io.getstream.chat.android.client.logger.ChatLogLevel
 import io.getstream.chat.android.models.User
@@ -29,9 +31,26 @@ class App : Application() {
     lateinit var chatDependencies: ChatDependencies
         private set
 
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+
+        // Installed before anything else the process does: a crash during onCreate is exactly the
+        // failure this has to survive, so it cannot wait for onCreate to run.
+        CrashHandler.install(base)
+    }
+
     override fun onCreate() {
-        setupStrictMode()
+        // The platform requires super first; application state is not ready before it.
         super.onCreate()
+
+        // The crash screen has its own process. That process must stay inert, or it would re-run the
+        // very initialisation that crashed and could never report anything.
+        if (CrashHandler.isCrashProcess(this)) return
+
+        // A crash too early for its screen to open is shown on the next start, then acknowledged.
+        CrashHandler.showPending(this)
+
+        setupStrictMode()
 
         chatDependencies = ChatDependencies(
             baseUrl = "http://10.0.2.2:3000", // Android emulator localhost

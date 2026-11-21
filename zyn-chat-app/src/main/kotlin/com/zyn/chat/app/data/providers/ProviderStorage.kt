@@ -40,18 +40,28 @@ internal class ProviderStorage(context: Context) {
     private val preferences = context.applicationContext
         .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-    private val moshi: Moshi = Moshi.Builder()
-        .addLast(KotlinJsonAdapterFactory())
-        .build()
-
-    private val providersAdapter: JsonAdapter<List<AiProvider>> = moshi.adapter(
-        Types.newParameterizedType(List::class.java, AiProvider::class.java),
-    )
+    /**
+     * Built on first use, never at construction time.
+     *
+     * It is also allowed to fail: this runs on the startup path, and a serialiser that cannot be
+     * built must degrade to "nothing configured" rather than take the whole app down.
+     */
+    private val providersAdapter: JsonAdapter<List<AiProvider>>? by lazy {
+        runCatching {
+            Moshi.Builder()
+                .addLast(KotlinJsonAdapterFactory())
+                .build()
+                .adapter<List<AiProvider>>(
+                    Types.newParameterizedType(List::class.java, AiProvider::class.java),
+                )
+        }.getOrNull()
+    }
 
     /** Reads the configured providers, or an empty list when nothing is stored. */
     fun loadProviders(): List<AiProvider> {
         val json = preferences.getString(KEY_PROVIDERS, null) ?: return emptyList()
-        return runCatching { providersAdapter.fromJson(json).orEmpty() }
+        val serializer = providersAdapter ?: return emptyList()
+        return runCatching { serializer.fromJson(json).orEmpty() }
             .getOrElse {
                 preferences.edit().remove(KEY_PROVIDERS).apply()
                 emptyList()
@@ -64,7 +74,8 @@ internal class ProviderStorage(context: Context) {
             preferences.edit().remove(KEY_PROVIDERS).apply()
             return
         }
-        val json = runCatching { providersAdapter.toJson(providers) }.getOrNull() ?: return
+        val serializer = providersAdapter ?: return
+        val json = runCatching { serializer.toJson(providers) }.getOrNull() ?: return
         preferences.edit().putString(KEY_PROVIDERS, json).apply()
     }
 

@@ -137,4 +137,13 @@
     <string name="zyn_conversation_delete_title">Delete chat?</string>
     <string name="zyn_conversation_delete_message">\"%1$s\" and everything it asked will be deleted from this device.</string>
     <string name="zyn_conversation_delete_confirm">Delete</string>
+
+    <!-- Crash reporter. -->
+    <string name="zyn_crash_title">Zyn Chat stopped</string>
+    <string name="zyn_crash_message">The app hit an unexpected error. The details below are what to send on, and copying them is enough for it to be fixed.</string>
+    <string name="zyn_crash_hint">Dismissing this clears the report.</string>
+    <string name="zyn_crash_copy">Copy details</string>
+    <string name="zyn_crash_copied">Crash details copied</string>
+    <string name="zyn_crash_close">Dismiss</string>
+    <string name="zyn_crash_missing_report">No crash report was found. The app closed before one could be written.</string>
 </resources>

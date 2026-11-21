@@ -73,10 +73,19 @@ internal class ConversationStore(
     private val directory: File = File(context.filesDir, CONVERSATIONS_DIRECTORY),
 ) {
 
-    private val adapter: JsonAdapter<StoredConversation> = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
-        .adapter(StoredConversation::class.java)
+    /**
+     * Built on first use, never at construction time, and allowed to fail: this is reached from the
+     * startup path, so a serialiser that cannot be built must leave conversations empty rather than
+     * kill the process. See `proguard-rules.pro` for the R8 rules that keep it working.
+     */
+    private val adapter: JsonAdapter<StoredConversation>? by lazy {
+        runCatching {
+            Moshi.Builder()
+                .add(KotlinJsonAdapterFactory())
+                .build()
+                .adapter(StoredConversation::class.java)
+        }.getOrNull()
+    }
 
     private val cache = mutableMapOf<String, StoredConversation>()
     private var loaded = false
@@ -97,8 +106,9 @@ internal class ConversationStore(
     fun save(conversation: StoredConversation) {
         ensureLoaded()
         cache[conversation.id] = conversation
+        val serializer = adapter ?: return
         directory.mkdirs()
-        runCatching { fileFor(conversation.id).writeText(adapter.toJson(conversation)) }
+        runCatching { fileFor(conversation.id).writeText(serializer.toJson(conversation)) }
     }
 
     /** Forgets a conversation and its file. */
@@ -120,8 +130,10 @@ internal class ConversationStore(
         loaded = true
     }
 
-    private fun read(file: File): StoredConversation? =
-        runCatching { adapter.fromJson(file.readText()) }.getOrNull()
+    private fun read(file: File): StoredConversation? {
+        val serializer = adapter ?: return null
+        return runCatching { serializer.fromJson(file.readText()) }.getOrNull()
+    }
 
     private fun fileFor(id: String): File = File(directory, "${id.toFileName()}.$JSON_EXTENSION")
 
