@@ -20,7 +20,14 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyn.chat.compose.parts.AIMessagePart
+import com.zyn.chat.app.data.providers.ApiKeyStore
+import com.zyn.chat.app.data.providers.ProviderException
+import com.zyn.chat.app.data.providers.ProviderRepository
 import com.zyn.chat.app.data.repository.ChatAiRepository
+import com.zyn.chat.app.domain.chat.ChatChunk
+import com.zyn.chat.app.domain.chat.ChatEngine
+import com.zyn.chat.app.domain.chat.ChatRole
+import com.zyn.chat.app.domain.chat.ChatTurn
 import com.zyn.chat.app.domain.isFromAi
 import com.zyn.chat.compose.ui.component.MessageData
 import com.zyn.chat.ondevice.AIConversationTurn
@@ -73,6 +80,9 @@ import io.getstream.chat.android.models.Message as StreamMessage
 internal class ChatViewModel(
     private val chatClient: ChatClient,
     private val chatAiRepository: ChatAiRepository,
+    providerRepository: ProviderRepository,
+    apiKeyStore: ApiKeyStore,
+    chatEngine: ChatEngine,
     appContext: Context,
     conversationId: String?,
 ) : ViewModel() {
@@ -88,6 +98,20 @@ internal class ChatViewModel(
     private val localMessages = MutableStateFlow<List<ChatUiState.Message>>(emptyList())
 
     private val logger by taggedLogger()
+
+    /**
+     * Bring-your-own-key answers. Used whenever a provider and a model are configured, in which case
+     * the app talks to the provider directly and this conversation never touches Stream.
+     */
+    private val providerAnswers = ProviderAnswerSource(
+        repository = providerRepository,
+        apiKeyStore = apiKeyStore,
+        chatEngine = chatEngine,
+        context = appContext,
+    )
+
+    /** The in-flight provider answer, cancelled when the person stops it or leaves the chat. */
+    private var providerAnswer: Job? = null
 
     private val cid = MutableStateFlow(conversationId)
 
@@ -173,6 +197,14 @@ internal class ChatViewModel(
         }
         // Busy from the tap itself, so a second tap during the IO hop below is ignored.
         _uiState.update { it.copy(assistantState = ChatUiState.AssistantState.Thinking) }
+
+        // Bring-your-own-key first: with a provider and a model configured, the app talks to the
+        // provider directly and this conversation never touches Stream.
+        val selection = providerAnswers.currentSelection()
+        if (selection != null) {
+            providerAnswer = viewModelScope.launch { answerWithProvider(text, selection) }
+            return
+        }
 
         viewModelScope.launch {
             if (cid.value != null && agentFailed && onDeviceModel.isAvailable()) {
@@ -277,6 +309,68 @@ internal class ChatViewModel(
         }
     }
 
+    /**
+     * Streams an answer from the person's own provider.
+     *
+     * The history is built from this conversation alone, so no other chat can influence the answer,
+     * and the request carries its own key: nothing is sent anywhere except the provider the person
+     * configured. Cancelling the collection (stop, or leaving the chat) cancels the HTTP call.
+     *
+     * @param text What the person just asked.
+     * @param selection Provider and model to ask.
+     */
+    private suspend fun answerWithProvider(text: String, selection: ProviderSelection) {
+        val answerId = UUID.randomUUID().toString()
+
+        // Built before the question is added, so it appears in the request exactly once.
+        val history = _uiState.value.messages
+            .reversed()
+            .map { message ->
+                ChatTurn(
+                    role = when (message.role) {
+                        ChatUiState.Message.Role.Assistant -> ChatRole.Assistant
+                        ChatUiState.Message.Role.User, ChatUiState.Message.Role.Other -> ChatRole.User
+                    },
+                    content = message.content,
+                )
+            } + ChatTurn(role = ChatRole.User, content = text)
+
+        localMessages.update { listOf(localMessage(ChatUiState.Message.Role.User, text)) + it }
+
+        val answer = StringBuilder()
+        var finalState: ChatUiState.AssistantState = ChatUiState.AssistantState.Idle
+
+        try {
+            providerAnswers.stream(selection, cid.value, history).collect { chunk ->
+                if (chunk is ChatChunk.Text) {
+                    answer.append(chunk.delta)
+                    val message = localMessage(
+                        ChatUiState.Message.Role.Assistant,
+                        answer.toString(),
+                        answerId,
+                        isGenerating = true,
+                    )
+                    localMessages.update { messages ->
+                        listOf(message) + messages.filterNot { it.id == answerId }
+                    }
+                    _uiState.update { it.copy(assistantState = ChatUiState.AssistantState.Generating) }
+                }
+            }
+        } catch (e: ProviderException) {
+            logger.e { "Provider answer failed: ${e.reason}" }
+            finalState = ChatUiState.AssistantState.Error
+            localMessages.update { messages ->
+                val failure = localMessage(ChatUiState.Message.Role.Assistant, providerAnswers.failureText(e))
+                listOf(failure) + messages
+            }
+        } finally {
+            localMessages.update { messages ->
+                messages.map { if (it.id == answerId) it.copy(isGenerating = false) else it }
+            }
+            _uiState.update { it.copy(assistantState = finalState) }
+        }
+    }
+
     /** Answers [question] with the model on the device. The question and answer stay on this screen. */
     private suspend fun answerOnDevice(question: String) {
         val turns = _uiState.value.messages.reversed().mapNotNull(ChatUiState.Message::toTurn) +
@@ -328,6 +422,7 @@ internal class ChatViewModel(
      */
     fun stopStreaming() {
         onDeviceAnswer?.cancel()
+        providerAnswer?.cancel()
         val cid = cid.value ?: run {
             logger.d { "No channel available to stop streaming" }
             return

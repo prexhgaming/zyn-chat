@@ -83,6 +83,9 @@ fun ChatScreen(
         key = conversationId,
         factory = ChatViewModelFactory(
             chatAiRepository = chatDependencies.chatAiRepository,
+            providerRepository = chatDependencies.providerRepository,
+            apiKeyStore = chatDependencies.apiKeyStore,
+            chatEngine = chatDependencies.chatEngine,
             appContext = appContext,
             conversationId = conversationId,
         ),

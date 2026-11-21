@@ -19,14 +19,20 @@ package com.zyn.chat.app.di
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.zyn.chat.app.data.providers.ApiKeyStore
+import com.zyn.chat.app.data.providers.ProviderRepository
 import com.zyn.chat.app.data.repository.ChatAiRepository
+import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.presentation.chat.ChatViewModel
 import io.getstream.chat.android.client.ChatClient
 
 /**
  * Factory for creating ChatViewModel with dependencies.
  *
- * @param chatAiRepository Repository that powers AI requests for the chat experience.
+ * @param chatAiRepository Repository that powers the legacy Stream AI path.
+ * @param providerRepository Where the configured provider and model selection live.
+ * @param apiKeyStore Encrypted key storage for bring-your-own-key answers.
+ * @param chatEngine Engine that talks to the person's provider.
  * @param appContext Application context used to resolve picker URIs into attachments.
  * @param chatClient The Stream Chat client instance. Defaults to [ChatClient.instance] if not provided.
  * @param conversationId The optional channel ID (CID) for an existing conversation.
@@ -34,6 +40,9 @@ import io.getstream.chat.android.client.ChatClient
  */
 class ChatViewModelFactory(
     private val chatAiRepository: ChatAiRepository,
+    private val providerRepository: ProviderRepository,
+    private val apiKeyStore: ApiKeyStore,
+    private val chatEngine: ChatEngine,
     private val appContext: Context,
     private val chatClient: ChatClient = ChatClient.instance(),
     private val conversationId: String?,
@@ -54,6 +63,9 @@ class ChatViewModelFactory(
         return ChatViewModel(
             chatClient = chatClient,
             chatAiRepository = chatAiRepository,
+            providerRepository = providerRepository,
+            apiKeyStore = apiKeyStore,
+            chatEngine = chatEngine,
             appContext = appContext,
             conversationId = conversationId,
         ) as T

@@ -57,6 +57,13 @@ Stream license headers stay in place (see `LICENSE`).
   while `ModelBrands.of(...)` recognises the family for a badge. Unknown values stay `null` (never
   guess a context window). `ui/components/BrandMark.kt` draws the mark and falls back to initials; the
   marks are the app's own drawings in `ZynIcons` — never bundle downloaded brand artwork.
+- Answers: `domain/chat/ChatEngine.kt` is the seam. `data/chat/ProviderChatEngine.kt` streams from the
+  person's own provider over OpenAI-compatible SSE (with `OpenAiProtocol` + `SseReader`), and
+  `ChatViewModel` uses it whenever a provider *and* model are configured — otherwise it keeps the
+  legacy Stream path untouched. `presentation/chat/ProviderAnswerSource.kt` owns the selection, the
+  key lookup and the failure copy. **Engines are stateless**: a request carries its whole
+  conversation, built from that conversation alone, and collecting is what makes the HTTP call — so
+  cancelling (stop, or leaving the chat) cancels it and no answer can land in another chat.
 - **Credentials never leak**: `di/NetworkModule.kt` redacts `Authorization` / `x-api-key` /
   `api-key` / `x-goog-api-key` on the single logging interceptor, and logging is only enabled in
   debug builds (`App.kt` passes `BuildConfig.DEBUG`). Every provider authenticates with a **header,

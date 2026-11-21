@@ -19,11 +19,14 @@ package com.zyn.chat.app
 import android.content.Context
 import com.squareup.moshi.Moshi
 import com.zyn.chat.app.data.api.ChatAiApi
+import com.zyn.chat.app.data.chat.ProviderChatEngine
 import com.zyn.chat.app.data.providers.AiProviderClient
+import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.data.providers.ProviderRepository
 import com.zyn.chat.app.data.repository.ChatAiRepository
 import com.zyn.chat.app.data.repository.ChatAiService
 import com.zyn.chat.app.di.NetworkModule
+import com.zyn.chat.app.domain.chat.ChatEngine
 import okhttp3.OkHttpClient
 
 /**
@@ -49,6 +52,12 @@ public class ChatDependencies(
     /** Talks to provider endpoints. Stateless, so it is safe to share. */
     public val providerClient: AiProviderClient
 
+    /** Encrypted key storage, shared by the provider store and the chat engine. */
+    public val apiKeyStore: ApiKeyStore
+
+    /** Streams answers from the person's own provider. Stateless, safe to share. */
+    public val chatEngine: ChatEngine
+
     private val moshi: Moshi
     private val providerHttpClient: OkHttpClient
 
@@ -68,8 +77,13 @@ public class ChatDependencies(
             moshi = moshi,
         )
 
-        providerRepository = ProviderRepository(context)
+        apiKeyStore = ApiKeyStore(context)
+        providerRepository = ProviderRepository(context, keyStore = apiKeyStore)
         providerClient = AiProviderClient(
+            httpClient = providerHttpClient,
+            moshi = moshi,
+        )
+        chatEngine = ProviderChatEngine(
             httpClient = providerHttpClient,
             moshi = moshi,
         )
