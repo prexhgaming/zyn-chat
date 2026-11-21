@@ -87,6 +87,14 @@ Stream license headers stay in place (see `LICENSE`).
   never a query parameter** — a key in the URL would bypass redaction, so never add a provider that
   passes its key in the query string. API keys are device-local and are never sent to any backend
   other than the provider's own host.
+- **Crashes are shown on the device, not just logcat**: `crash/CrashHandler.kt` is installed in
+  `App.attachBaseContext` (before `onCreate`, because a crash during startup is exactly what it must
+  survive) and opens `crash/CrashActivity.kt`, which the manifest puts in its **own `:crash` process**
+  so it can outlive the process that died. `App.onCreate` returns early in that process — that process
+  must never run app initialisation. Never move the handler install into `onCreate`, and never give
+  `CrashActivity` a dependency on `chatDependencies`.
+- `App.onCreate` calls `super.onCreate()` **first**; nothing may run before it. StrictMode is set up
+  after it.
 - The drawer's "Providers" entry and the "Providers" action in the model picker header both call the
   single `onManageProviders` action hoisted in `ui/AiChatApp.kt`, which opens the one
   `ui/providers/ProvidersScreen.kt`. Adding a provider validates the key against that provider's real
@@ -112,6 +120,12 @@ Toolchain: JDK 17, compileSdk 36, minSdk 23 (app and ondevice: 26).
   single release APK (`assembleRelease`); there is no debug APK job.
 - There is **no Android SDK in the dev sandbox**: compilation, tests and APK builds only run in
   CI (`.github/workflows/ci.yml`) or on a machine with the SDK. Never claim a local build passed.
+- **The release build is minified, and `zyn-chat-app/proguard-rules.pro` is load-bearing.** State is
+  serialised with Moshi's *reflective* adapter, which reads Kotlin metadata at runtime; the rules keep
+  that metadata, the serialised models (`data/providers`, `data/chat`, `domain/chat`) and the
+  `@Json` field names. Without them the failure lands inside `Application.onCreate` and the app dies
+  before any screen appears. Keep serialiser creation lazy and failure-tolerant, as
+  `ProviderStorage` / `ConversationStore` do.
 - `zyn-chat-compose` runs Paparazzi + Robolectric snapshot tests; they cannot share a JVM, hence
   `tasks.withType<Test> { forkEvery = 1 }` — do not remove.
 - `zyn-chat-compose` / `zyn-chat-ondevice` compile with `-Xexplicit-api=strict`: new public
