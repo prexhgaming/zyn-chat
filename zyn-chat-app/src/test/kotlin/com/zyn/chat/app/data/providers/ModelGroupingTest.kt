@@ -123,4 +123,4 @@ class ModelGroupingTest {
 }
 
 /** The provider-unknown record, with tool support added, for the grouping rules that read it. */
-private fun ModelCapabilities.withToolsForTest(): ModelCapabilities = copy(tools = true)
+private fun ModelCapabilities.withToolsForTest(): ModelCapabilities = copy(supportsTools = true)

@@ -47,8 +47,8 @@ public enum class ModelGroup {
  * claim in either direction: a model we cannot identify is grouped as [ModelGroup.Other].
  */
 public fun groupOf(model: AiModel): ModelGroup = when {
-    model.capabilities.acceptsImages == true -> ModelGroup.Vision
-    model.capabilities.hasTools -> ModelGroup.Tools
+    model.capabilities.acceptsImages -> ModelGroup.Vision
+    model.capabilities.supportsTools == true -> ModelGroup.Tools
     model.isFree -> ModelGroup.Free
     else -> ModelGroup.Other
 }
@@ -67,12 +67,12 @@ public enum class CapabilityToken {
  * list rather than a "text only" label it may not deserve.
  */
 public fun capabilityTokensOf(capabilities: ModelCapabilities): List<CapabilityToken> = buildList {
-    when (capabilities.acceptsImages) {
+    when (capabilities.imageSupport) {
         true -> add(CapabilityToken.ReadsPictures)
         false -> add(CapabilityToken.TextOnly)
         null -> Unit
     }
-    if (capabilities.hasTools) add(CapabilityToken.Tools)
+    if (capabilities.supportsTools == true) add(CapabilityToken.Tools)
 }
 
 /**

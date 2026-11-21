@@ -43,8 +43,23 @@ Stream license headers stay in place (see `LICENSE`).
 - `SmartSendButton` = mic when empty, send when there is text, stop while generating, stop/cancel
   while dictating. Long press dictates, and a long press can never fall through into a send.
 - Model picker: `ui/chat/ModelPickerSheet.kt` (Material `ModalBottomSheet`, drag handle, provider
-  tabs, per-model rows, empty state). The drawer is a `ModalNavigationDrawer` with a partial-width
-  sheet, animated scrim and an edge-swipe strip in `ui/AiChatApp.kt`.
+  tabs, search field, grouped rows, three distinct empty states). The sections come from
+  `data/providers/ModelGrouping.kt` (`groupOf` / `groupedModels` / `capabilityTokensOf`), which is
+  pure and unit-tested — change grouping rules there, not in the sheet. The drawer is a
+  `ModalNavigationDrawer` with a partial-width sheet, animated scrim and an edge-swipe strip in
+  `ui/AiChatApp.kt`.
+- **Model abilities are never assumed** (`data/providers/ModelCapabilities.kt`): every field is
+  tri-state, so `null` means unknown and is never treated as "no". A provider's own report wins over
+  the local `ModelCapabilityCatalog` (evidence-based family and suffix knowledge, with explicit
+  exceptions checked before families). Images are attached only when image support is positively
+  known: a known text-only model is blocked with an explanation, an unknown one is allowed with a
+  warning. Never collapse unknown into false.
+- Picture previews sit **inside** the composer's own field, not above it; `ImageThumbnails.kt`
+  decodes off the main thread because there is no image-loading library on the classpath. A picture
+  in a message opens `ui/chat/ImagePreview.kt`, and assistant attachments are rendered as well.
+- Opening a chat passes **both** ids: `selectedConversationId` (storage) and `selectedChannelId`
+  (Stream). Only a real channel id may reach Stream — see `isChannelId` in
+  `domain/chat/ConversationRepository.kt`; handing Stream a stored uuid is what crashed on resume.
 - Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt`, `DrawerConversationItem.kt` and
   `ConversationDialogs.kt`. Recents are the union of Stream channels and the device's stored
   conversations, bucketed into Today / Yesterday / Previous 7 days / Older by `updatedAt`
