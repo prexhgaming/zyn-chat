@@ -69,7 +69,8 @@ import io.getstream.chat.android.models.User
  * @param conversations Recent conversations, newest first.
  * @param selectedConversationId The conversation currently open, if any.
  * @param onNewChatClick Invoked when "New chat" is tapped.
- * @param onConversationClick Invoked with the id of a tapped conversation.
+ * @param onConversationClick Invoked with a tapped conversation, so both its storage id and its
+ * channel id (when it has one) are available.
  * @param onRenameConversation Invoked with a conversation id and its new title.
  * @param onDeleteConversation Invoked with the id of a conversation to delete.
  * @param onUserInfoClick Invoked when the profile row is tapped.
@@ -84,7 +85,7 @@ fun ChatDrawer(
     conversations: List<Conversation>,
     selectedConversationId: String?,
     onNewChatClick: () -> Unit,
-    onConversationClick: (conversationId: String) -> Unit,
+    onConversationClick: (conversation: Conversation) -> Unit,
     onRenameConversation: (conversationId: String, title: String) -> Unit,
     onDeleteConversation: (conversationId: String) -> Unit,
     onUserInfoClick: () -> Unit,
@@ -160,7 +161,7 @@ fun ChatDrawer(
                             title = conversation.title,
                             selected = conversation.id == selectedConversationId,
                             modelSlug = conversation.modelSlug,
-                            onClick = { onConversationClick(conversation.id) },
+                            onClick = { onConversationClick(conversation) },
                             onRename = { renameTarget = conversation },
                             onDelete = { deleteTarget = conversation },
                         )

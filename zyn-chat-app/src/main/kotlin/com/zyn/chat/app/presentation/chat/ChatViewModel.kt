@@ -29,6 +29,7 @@ import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.domain.chat.ChatRole
 import com.zyn.chat.app.domain.chat.ChatTurn
 import com.zyn.chat.app.domain.chat.ConversationRepository
+import com.zyn.chat.app.domain.chat.isChannelId
 import com.zyn.chat.app.domain.isFromAi
 import com.zyn.chat.compose.ui.component.MessageData
 import com.zyn.chat.ondevice.AIConversationTurn
@@ -120,7 +121,14 @@ internal class ChatViewModel(
     /** The in-flight provider answer, cancelled when the person stops it or leaves the chat. */
     private var providerAnswer: Job? = null
 
-    private val cid = MutableStateFlow(conversationId)
+    /**
+     * The Stream channel id for this chat, or `null` when it has no channel at all.
+     *
+     * Only a value that actually looks like a cid (`type:id`) is accepted. A stored conversation id
+     * is a bare uuid, and handing that to the client throws — which is what crashed the app when a
+     * past chat was opened from the drawer.
+     */
+    private val cid = MutableStateFlow(conversationId?.takeIf(::isChannelId))
 
     private val _uiState = MutableStateFlow(ChatUiState())
 
@@ -150,6 +158,30 @@ internal class ChatViewModel(
                 _uiState.update { state -> state.copy(messages = messages, isLoading = false) }
             }
             .launchIn(viewModelScope)
+
+        // Reopening a conversation restores what was said in it. This used to be missing entirely,
+        // so a reopened chat came up empty even once it stopped crashing.
+        viewModelScope.launch {
+            val storedId = cid.value ?: localConversationId
+            val stored = conversations.history(storedId)
+            if (stored.isNotEmpty() && localMessages.value.isEmpty()) {
+                localMessages.value = stored.reversed().map { turn ->
+                    localMessage(
+                        role = if (turn.role == ChatRole.Assistant) {
+                            ChatUiState.Message.Role.Assistant
+                        } else {
+                            ChatUiState.Message.Role.User
+                        },
+                        content = turn.content,
+                    )
+                }
+            }
+
+            val meta = conversations.conversation(storedId)
+            if (meta != null && meta.title.isNotBlank()) {
+                _uiState.update { state -> state.copy(title = meta.title) }
+            }
+        }
 
         cid.filterNotNull()
             // Start the AI agent

@@ -105,7 +105,19 @@ public fun AiChatApp(
     val providersState by providersViewModel.uiState.collectAsState()
     val providerSyncState by providersViewModel.syncState.collectAsState()
 
+    /**
+     * Storage id of the open conversation, or `null` for a chat that has not been stored yet. This
+     * selects the stored history and keys the view model, and it is never a Stream channel id.
+     */
     var selectedConversationId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    /**
+     * Stream channel id of the open conversation, or `null` when it has no channel at all — which is
+     * the case for every chat answered by the person's own provider. Only this value reaches Stream:
+     * handing it a bare storage id is what crashed the app when a past chat was opened.
+     */
+    var selectedChannelId by rememberSaveable { mutableStateOf<String?>(null) }
+
     var showModelPicker by rememberSaveable { mutableStateOf(false) }
     var showProviders by rememberSaveable { mutableStateOf(false) }
 
@@ -137,6 +149,7 @@ public fun AiChatApp(
      */
     fun startNewChat() {
         selectedConversationId = null
+        selectedChannelId = null
         newChatStorageId = newConversationId()
         newChatRevision++
     }
@@ -173,8 +186,9 @@ public fun AiChatApp(
                         startNewChat()
                         scope.launch { drawerState.close() }
                     },
-                    onConversationClick = { conversationId ->
-                        selectedConversationId = conversationId
+                    onConversationClick = { conversation ->
+                        selectedConversationId = conversation.id
+                        selectedChannelId = conversation.channelId
                         scope.launch { drawerState.close() }
                     },
                     onRenameConversation = { conversationId, title ->
@@ -210,8 +224,8 @@ public fun AiChatApp(
                 ViewModelStore(navigationKey) {
                     ChatScreen(
                         modifier = Modifier.fillMaxSize(),
-                        conversationId = selectedConversationId,
-                        localConversationId = newChatStorageId,
+                        conversationId = selectedChannelId,
+                        localConversationId = selectedConversationId ?: newChatStorageId,
                         chatDependencies = chatDependencies,
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onNewChatClick = { startNewChat() },

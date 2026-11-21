@@ -21,6 +21,7 @@ import androidx.lifecycle.viewModelScope
 import com.zyn.chat.app.data.chat.TitleSource
 import com.zyn.chat.app.domain.chat.ConversationMeta
 import com.zyn.chat.app.domain.chat.ConversationRepository
+import com.zyn.chat.app.domain.chat.isChannelId
 import io.getstream.chat.android.client.ChatClient
 import io.getstream.chat.android.client.api.models.QueryChannelsRequest
 import io.getstream.chat.android.client.api.state.queryChannelsAsState
@@ -175,6 +176,9 @@ public class ConversationListViewModel(
                     title = meta.title,
                     updatedAt = meta.updatedAt,
                     modelSlug = meta.modelId?.substringAfterLast(CID_SEPARATOR),
+                    // A stored chat that is keyed by a channel id still has a channel; anything else
+                    // is local-only and must never be handed to Stream as a cid.
+                    channelId = meta.id.takeIf(::isChannelId),
                 )
             }
 
@@ -194,5 +198,6 @@ private fun Channel.toConversation(): Conversation {
         id = cid,
         title = title,
         updatedAt = lastUpdated?.time,
+        channelId = cid,
     )
 }

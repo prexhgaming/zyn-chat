@@ -34,12 +34,16 @@ public data class ConversationListState(
  * @param title Display title. A title the person set by hand always wins over a generated one.
  * @param updatedAt When the conversation was last used, used to group the drawer. `null` when unknown.
  * @param modelSlug Model the conversation was last answered with, used for its brand mark.
+ * @param channelId The Stream channel id, or `null` when the chat has no channel at all. This is the
+ * only value that may ever be handed to Stream: a stored conversation id is not a channel id, and
+ * passing one to the client throws.
  */
 public data class Conversation(
     val id: String,
     val title: String,
     val updatedAt: Long? = null,
     val modelSlug: String? = null,
+    val channelId: String? = null,
 )
 
 /** Time buckets the drawer groups recent conversations into, newest first. */

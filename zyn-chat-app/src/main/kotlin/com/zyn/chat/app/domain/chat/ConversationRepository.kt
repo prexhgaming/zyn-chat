@@ -36,6 +36,16 @@ import java.util.UUID
 public fun newConversationId(): String = UUID.randomUUID().toString()
 
 /**
+ * Whether [value] is a Stream channel id, which is the only kind of id the client accepts.
+ *
+ * A channel id is `type:id`; a stored conversation id is a bare uuid. This check exists because
+ * passing the latter to the client throws, and it is deliberately lenient about the id itself.
+ */
+public fun isChannelId(value: String?): Boolean = value != null && value.contains(CHANNEL_ID_SEPARATOR)
+
+private const val CHANNEL_ID_SEPARATOR = ':'
+
+/**
  * What the drawer needs to know about a conversation, without its messages.
  *
  * Kept separate from the stored conversation so history cannot leak into list state by accident.
@@ -75,6 +85,11 @@ public class ConversationRepository internal constructor(
         store.get(conversationId)?.turns.orEmpty().map { turn ->
             ChatTurn(role = turn.role.toRole(), content = turn.content)
         }
+    }
+
+    /** One conversation's title and model, or `null` when nothing is stored under that id. */
+    public suspend fun conversation(conversationId: String): ConversationMeta? = withContext(Dispatchers.IO) {
+        store.get(conversationId)?.toMeta()
     }
 
     /**
