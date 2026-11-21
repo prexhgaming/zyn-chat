@@ -58,7 +58,7 @@ Stream license headers stay in place (see `LICENSE`).
 ## Commands
 
 ```bash
-./gradlew :zyn-chat-app:assembleRelease    # what CI builds: signed, split release APKs
+./gradlew :zyn-chat-app:assembleRelease    # what CI builds: the signed release APK
 ./gradlew :zyn-chat-app:assembleDebug      # local development only
 ./gradlew :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest
 ./gradlew lint detekt                      # static analysis
@@ -68,10 +68,9 @@ Toolchain: JDK 17, compileSdk 36, minSdk 23 (app and ondevice: 26).
 
 ## Build & test notes
 
-- APKs are **split per ABI** (`armeabi-v7a`, `arm64-v8a`, `x86_64`) plus a universal APK;
-  outputs land in `zyn-chat-app/build/outputs/apk/<variant>/`. CI builds and uploads **release
-  APKs only** (`assembleRelease`) — there is no debug APK job; keep the per-ABI upload steps in
-  sync if the ABI list changes.
+- The release build emits **one universal APK** (`zyn-chat-app/build/outputs/apk/release/`) —
+  ABI splits were removed because the app has almost no native code. CI builds and uploads that
+  single release APK (`assembleRelease`); there is no debug APK job.
 - There is **no Android SDK in the dev sandbox**: compilation, tests and APK builds only run in
   CI (`.github/workflows/ci.yml`) or on a machine with the SDK. Never claim a local build passed.
 - `zyn-chat-compose` runs Paparazzi + Robolectric snapshot tests; they cannot share a JVM, hence

@@ -16,12 +16,11 @@ permissions:
   contents: read
 
 jobs:
-  # Release APKs are signed with the repository's release keystore, which is restored from
+  # The release APK is signed with the repository's release keystore, which is restored from
   # encrypted secrets before Gradle starts (never committed to the repository).
-  # One APK is built per ABI (plus a universal APK) and every split is uploaded as its own
-  # artifact, so each ABI can be downloaded and installed independently.
-  release-apks:
-    name: Release split APKs (signed)
+  # A single universal APK is built (no per-ABI splits) and uploaded as one artifact.
+  release-apk:
+    name: Release APK (signed)
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
@@ -52,7 +51,7 @@ jobs:
           test -s "$ANDROID_KEYSTORE_PATH"
           echo "Keystore restored: $ANDROID_KEYSTORE_PATH ($(wc -c < "$ANDROID_KEYSTORE_PATH") bytes)"
 
-      - name: Build split release APKs
+      - name: Build release APK
         run: |
           chmod +x ./gradlew
           ./gradlew :zyn-chat-app:assembleRelease --stacktrace
@@ -70,35 +69,11 @@ jobs:
             "$APKSIGNER" verify --print-certs "$apk" | head -3
           done
 
-      - name: Upload APK - arm64-v8a
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: zyn-chat-release-arm64-v8a
-          path: zyn-chat-app/build/outputs/apk/release/*arm64-v8a*.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload APK - armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: zyn-chat-release-armeabi-v7a
-          path: zyn-chat-app/build/outputs/apk/release/*armeabi-v7a*.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload APK - x86_64
-        uses: actions/upload-artifact@v4
-        with:
-          name: zyn-chat-release-x86_64
-          path: zyn-chat-app/build/outputs/apk/release/*x86_64*.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload APK - universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: zyn-chat-release-universal
-          path: zyn-chat-app/build/outputs/apk/release/*universal*.apk
+          name: zyn-chat-release-apk
+          path: zyn-chat-app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
 

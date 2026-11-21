@@ -35,28 +35,24 @@ Build scripts are Kotlin DSL (`.kts`) throughout, with versions centralised in
 ## Build & test
 
 ```bash
-./gradlew :zyn-chat-app:assembleRelease      # what CI builds: signed, split release APKs
+./gradlew :zyn-chat-app:assembleRelease      # what CI builds: the signed release APK
 ./gradlew :zyn-chat-app:assembleDebug        # local development only
 ./gradlew :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest
 ./gradlew lint detekt
 ```
 
-### Split APKs
+### APK output
 
-The app module is configured for per-ABI splits plus a universal APK. CI builds the **release**
-variant only (`:zyn-chat-app:assembleRelease`), which emits:
+A single **universal** APK is built, containing every ABI:
 
 ```
-zyn-chat-app/build/outputs/apk/<variant>/zyn-chat-app-arm64-v8a-<variant>.apk
-zyn-chat-app/build/outputs/apk/<variant>/zyn-chat-app-armeabi-v7a-<variant>.apk
-zyn-chat-app/build/outputs/apk/<variant>/zyn-chat-app-x86_64-<variant>.apk
-zyn-chat-app/build/outputs/apk/<variant>/zyn-chat-app-universal-<variant>.apk
+zyn-chat-app/build/outputs/apk/release/zyn-chat-app-release.apk
 ```
 
-CI uploads **each split as its own artifact**, so a single ABI can be downloaded and installed
-on its own. To add or drop an ABI, change the `splits { abi { include(...) } }` list in
-[`zyn-chat-app/build.gradle.kts`](zyn-chat-app/build.gradle.kts) and keep the per-ABI upload
-steps in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) in sync.
+There are deliberately no per-ABI splits: the app ships almost no native code, so splitting only
+added release and install overhead. If a large native dependency is ever introduced, re-enable
+`splits { abi { ... } }` in [`zyn-chat-app/build.gradle.kts`](zyn-chat-app/build.gradle.kts) and
+restore the per-ABI upload steps in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Release signing
 
@@ -86,7 +82,7 @@ that every release APK is signed with that key.
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs three jobs: `release-apks` (signed
-split release APK build, one artifact per ABI plus the R8 mapping), `unit-tests` (compose +
-ondevice unit and snapshot tests) and `static-analysis` (`lint`, `detekt`). CI builds and
-uploads **release APKs only** — no debug APK job.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs three jobs: `release-apk` (signed
+release APK build plus the R8 mapping), `unit-tests` (compose + ondevice unit and snapshot tests)
+and `static-analysis` (`lint`, `detekt`). CI builds and uploads **the release APK only** — no
+debug APK job.

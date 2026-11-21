@@ -70,16 +70,9 @@ android {
         }
     }
 
-    // One APK per ABI plus a universal APK: CI builds the variants and uploads every split
-    // as its own artifact, so a single ABI can be downloaded and installed on its own.
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = true
-        }
-    }
+    // A single universal APK is built on purpose: the app carries almost no native code, so the
+    // per-ABI splits only added release and download overhead without a meaningful size win.
+    // Re-introduce `splits { abi { ... } }` here if a large native dependency is ever added.
 
     buildFeatures {
         buildConfig = true
