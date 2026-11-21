@@ -61,10 +61,14 @@ Stream license headers stay in place (see `LICENSE`).
   (Stream). Only a real channel id may reach Stream — see `isChannelId` in
   `domain/chat/ConversationRepository.kt`; handing Stream a stored uuid is what crashed on resume.
 - Drawer: `ui/components/ChatDrawer.kt` with `DrawerNavItem.kt`, `DrawerConversationItem.kt` and
-  `ConversationDialogs.kt`. Recents are the union of Stream channels and the device's stored
-  conversations, bucketed into Today / Yesterday / Previous 7 days / Older by `updatedAt`
-  (`RecentSection` + `groupedByRecentSection` in `ConversationListState.kt`). Long-pressing a row
-  offers Rename and Delete; **a stored title always wins over a channel name**, which is what makes a
+  `ConversationDialogs.kt`. Recents are **this device's stored conversations only**, newest first,
+  bucketed into Today / Yesterday / Previous 7 days / Older by `updatedAt` (`RecentSection` +
+  `groupedByRecentSection` in `ConversationListState.kt`). They are deliberately **not** read from
+  Stream's channel list: the app signs into a shared demo Stream account (`uun7ywwamhs9` key with a
+  fixed `stream-user`), so that account's channels are other people's seeded sample chats and showed
+  up as placeholder recents. A chat that has a channel is stored under that channel's id, so it still
+  lists and still opens its channel; only channels this device never used are absent. Long-pressing a
+  row offers Rename and Delete; a stored title always wins over a channel name, which is what makes a
   rename stick, and a `TitleSource.Manual` title is never replaced automatically.
 - Every new chat gets its own storage id (`newConversationId()`); the id is never shared or reused
   between chats, and `ChatViewModel` stores under `cid ?: localConversationId`.
