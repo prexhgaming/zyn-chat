@@ -11,15 +11,19 @@ local.properties
 .idea
 .kotlin
 
-# Release signing material — never commit.
-keystore.jks
-*.jks
-*.keystore
-signing.properties
-.secrets/
+# Python bytecode from the icon tooling.
+__pycache__/
+*.pyc
 
 # Uploaded attachments / dropped archives (may contain signing material).
 uploads/
+
+# Release signing material and any other local-only credential. Never commit these:
+# the keystore and its passwords are what keep a release APK from being re-signed by anyone else.
+.secrets/
+*.jks
+*.keystore
+signing.properties
 
 # Local agent tooling state: baseline snapshots, plan and edit history — not app source.
 .base/
