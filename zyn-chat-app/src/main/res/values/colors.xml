@@ -15,7 +15,7 @@
     limitations under the License.
 -->
 <resources>
-    <!-- The launcher icon's background, which is the app's brand colour: the same green as the
-         in-app accent (see ui/theme/Color.kt, Green). The foreground glyph is white. -->
-    <color name="ic_launcher_background">#FF60A832</color>
+    <!-- The launcher icon's background, which is the app's brand colour: the same emerald as the
+         in-app accent's light seed (see ui/theme/Color.kt, Green). The foreground glyph is white. -->
+    <color name="ic_launcher_background">#FF047857</color>
 </resources>

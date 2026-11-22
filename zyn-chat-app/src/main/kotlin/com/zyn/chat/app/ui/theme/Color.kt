@@ -20,12 +20,14 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// Brand — the accent seed. Selection states, primary actions and the send button read this.
-private val Green = Color(0xFF60A832)
+// Brand — the accent seeds. The light theme takes the deep emerald, which is dark enough to carry a
+// white caption; the dark theme takes the vivid one, which stands out on a near-black surface and
+// carries a dark caption instead. Same hue in both, so the identity does not change with the theme.
+private val Green = Color(0xFF047857)
+private val GreenBright = Color(0xFF10B981)
 
-// Content on the accent wash. Text on the accent itself is Ink: onAccentColor picks a caption by
-// contrast rather than assuming white, which is unreadable on a seed this light.
-private val GreenDeep = Color(0xFF1F3D0C)
+// Content drawn on the pale accent wash (a selected row's tint) in the light theme.
+private val GreenDeep = Color(0xFF064E3B)
 
 // Neutrals
 private val White = Color(0xFFFFFFFF)
@@ -56,15 +58,15 @@ private val RedDeep = Color(0xFF3A0B0B)
 internal val LightColorScheme =
     lightColorScheme(
         primary = Green,
-        onPrimary = Ink,
+        onPrimary = White,
         primaryContainer = Green.copy(alpha = 0.10f),
         onPrimaryContainer = GreenDeep,
         secondary = Green,
-        onSecondary = Ink,
+        onSecondary = White,
         secondaryContainer = Green.copy(alpha = 0.10f),
         onSecondaryContainer = GreenDeep,
         tertiary = Green,
-        onTertiary = Ink,
+        onTertiary = White,
         tertiaryContainer = Green.copy(alpha = 0.12f),
         onTertiaryContainer = GreenDeep,
         background = White,
@@ -83,18 +85,18 @@ internal val LightColorScheme =
 
 internal val DarkColorScheme =
     darkColorScheme(
-        primary = Green,
+        primary = GreenBright,
         onPrimary = Ink,
-        primaryContainer = Green.copy(alpha = 0.16f),
-        onPrimaryContainer = Green,
-        secondary = Green,
+        primaryContainer = GreenBright.copy(alpha = 0.16f),
+        onPrimaryContainer = GreenBright,
+        secondary = GreenBright,
         onSecondary = Ink,
-        secondaryContainer = Green.copy(alpha = 0.18f),
-        onSecondaryContainer = Green,
-        tertiary = Green,
+        secondaryContainer = GreenBright.copy(alpha = 0.18f),
+        onSecondaryContainer = GreenBright,
+        tertiary = GreenBright,
         onTertiary = Ink,
-        tertiaryContainer = Green.copy(alpha = 0.20f),
-        onTertiaryContainer = Green,
+        tertiaryContainer = GreenBright.copy(alpha = 0.20f),
+        onTertiaryContainer = GreenBright,
         background = NightBackground,
         onBackground = NightText,
         surface = NightSurface,
