@@ -16,6 +16,7 @@
 
 package com.zyn.chat.app.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -28,7 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,14 +41,14 @@ public val BrandMarkSize: Dp = 34.dp
 /**
  * Square badge that identifies a provider or a model.
  *
- * Draws the brand's glyph when one is known ([mark]) and falls back to [label]'s initials, so the
- * widget is never empty and new models work the moment they appear — before anyone has drawn a mark
- * for them. Colours come from the accent tokens, so a change of accent in settings propagates here
- * without touching this file.
+ * Draws the brand's glyph when one is known ([markRes]) and falls back to [label]'s initials, so the
+ * widget is never empty and a model that appears tomorrow still gets a readable badge before anyone
+ * has added artwork for it. Colours come from the accent tokens, so a change of accent in settings
+ * propagates here without touching this file.
  *
  * @param label Name the initials are taken from, and the mark's content description.
  * @param modifier Applied to the badge.
- * @param mark Brand glyph, or `null` to show initials.
+ * @param markRes Brand glyph, or `null` to show initials.
  * @param size Edge of the badge.
  * @param tint Colour of the glyph; defaults to the accent.
  */
@@ -55,7 +56,7 @@ public val BrandMarkSize: Dp = 34.dp
 public fun BrandMark(
     label: String,
     modifier: Modifier = Modifier,
-    mark: ImageVector? = null,
+    @DrawableRes markRes: Int? = null,
     size: Dp = BrandMarkSize,
     tint: Color = MaterialTheme.accent.primary,
 ) {
@@ -68,9 +69,9 @@ public fun BrandMark(
             .background(MaterialTheme.accent.tint),
         contentAlignment = Alignment.Center,
     ) {
-        if (mark != null) {
+        if (markRes != null) {
             Icon(
-                imageVector = mark,
+                painter = painterResource(markRes),
                 contentDescription = label,
                 modifier = Modifier.size(size / TWO),
                 tint = tint,

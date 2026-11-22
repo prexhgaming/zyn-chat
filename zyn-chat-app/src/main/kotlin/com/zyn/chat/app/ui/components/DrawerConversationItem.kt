@@ -25,8 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
-import com.zyn.chat.app.data.providers.ModelBrands
-import com.zyn.chat.app.ui.brand.markOf
+import com.zyn.chat.app.ui.brand.markFor
 import com.zyn.chat.app.ui.theme.RowShape
 
 /**
@@ -78,7 +77,7 @@ fun DrawerConversationItem(
         ) {
             BrandMark(
                 label = title,
-                mark = markOf(ModelBrands.of(providerId = "", modelSlug.orEmpty())),
+                markRes = markFor("", modelSlug.orEmpty()),
                 size = 22.dp,
             )
 

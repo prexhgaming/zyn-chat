@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
 import com.zyn.chat.app.data.providers.AiProvider
+import com.zyn.chat.app.ui.brand.markFor
 import com.zyn.chat.app.ui.components.BrandMark
 import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.accent
@@ -135,7 +136,7 @@ private fun ProviderHeader(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BrandMark(label = provider.name)
+        BrandMark(label = provider.name, markRes = markFor(provider.id, ""))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -70,12 +70,11 @@ import com.zyn.chat.app.R
 import com.zyn.chat.app.data.providers.AiModel
 import com.zyn.chat.app.data.providers.AiProvider
 import com.zyn.chat.app.data.providers.CapabilityToken
-import com.zyn.chat.app.data.providers.ModelBrands
 import com.zyn.chat.app.data.providers.ModelGroup
 import com.zyn.chat.app.data.providers.ProvidersState
 import com.zyn.chat.app.data.providers.capabilityTokensOf
 import com.zyn.chat.app.data.providers.groupedModels
-import com.zyn.chat.app.ui.brand.markOf
+import com.zyn.chat.app.ui.brand.markFor
 import com.zyn.chat.app.ui.components.BrandMark
 import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.AccentColors
@@ -288,7 +287,7 @@ private fun ProviderTab(
     ) {
         BrandMark(
             label = provider.name,
-            mark = markOf(ModelBrands.of(provider.id, "")),
+            markRes = markFor(provider.id, ""),
             size = 22.dp,
         )
         Text(
@@ -467,7 +466,7 @@ private fun ModelRow(
     ) {
         BrandMark(
             label = model.displayName,
-            mark = markOf(ModelBrands.of(model.providerId, model.slug)),
+            markRes = markFor(model.providerId, model.slug),
             size = 40.dp,
         )
 

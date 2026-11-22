@@ -28,9 +28,13 @@ Stream license headers stay in place (see `LICENSE`).
   scheme's primary (the app's blue). Selection states, the send button and the model picker read
   these tokens, so a future settings screen swaps the accent via `AppTheme(accent = ...)` without
   touching components. Do not hardcode an accent colour anywhere.
-- Icons are `ImageVector`s in `ui/icons/ZynIcons.kt` (shared 24x24 viewport, 1.7dp stroke), not
-  drawable resources. The app's older `res/drawable/ic_*` icons are the Material-Symbols ones the
-  top bar still uses.
+- UI icons are `ImageVector`s in `ui/icons/ZynIcons.kt` (shared 24x24 viewport, 1.7dp stroke). The
+  app's older `res/drawable/ic_*` icons are the Material-Symbols ones the top bar still uses.
+- **Brand marks are generated, never hand-drawn**: `tools/lobe-icons/convert.py` downloads the
+  MIT-licensed LobeHub icon set (<https://icons.lobehub.com/>) and writes
+  `res/drawable/ic_model_<id>.xml`, `data/providers/BrandCatalog.kt` and `ui/brand/ModelMarks.kt`.
+  Do not hand-edit those three: add a row to the script's brand table and re-run it from the repo root.
+  The drawables are `currentColor` mono glyphs, so they tint with the theme like any other icon.
 - The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `SmartSendButton.kt`
   + `ModelSelector.kt`. The library's `ChatComposer` and `SpeechToTextButton` are intentionally left
   untouched (and unused by the app), so the `zyn-chat-compose` Paparazzi snapshots keep matching —
@@ -80,9 +84,17 @@ Stream license headers stay in place (see `LICENSE`).
   model list — the only way in is `ProviderRepository.addProvider`, driven by the providers screen.
 - Model metadata: `data/providers/ModelCatalog.kt` **only decorates** what a provider reported — a
   readable name derived from the slug, a known context window, and the `:free` suffix OpenRouter uses —
-  while `ModelBrands.of(...)` recognises the family for a badge. Unknown values stay `null` (never
-  guess a context window). `ui/components/BrandMark.kt` draws the mark and falls back to initials; the
-  marks are the app's own drawings in `ZynIcons` — never bundle downloaded brand artwork.
+  while `ModelBrands.of(providerId, slug)` names its maker for a badge, returning `null` (→ initials)
+  instead of guessing. Unknown values stay `null` (never guess a context window).
+  `ui/components/BrandMark.kt` renders `markRes` and falls back to initials.
+- Brand recognition (`data/providers/ModelBrand.kt`) takes the model segment after the last `/` (so
+  `openai/gpt-4o` and `publishers/google/models/gemini-2.5-flash` both work), then matches each brand's
+  identifying words **longest first** and only as whole words: that is what keeps `llama-3.1-nemotron`
+  with NVIDIA rather than Meta, and stops `phi` from claiming `dolphin` or `pi` from claiming
+  `pixtral`. A model that names its family beats its provider id, which is the fallback — `azure` →
+  Microsoft, `bedrock` → Amazon, `vertex` → Google. `ui/providers/ProviderCard.kt` uses the same
+  lookup, so provider rows show real logos too. Changing the rules means changing the tests in
+  `ModelBrandTest.kt`, which pin every case above.
 - Answers: `domain/chat/ChatEngine.kt` is the seam. `data/chat/ProviderChatEngine.kt` streams from the
   person's own provider over OpenAI-compatible SSE (with `OpenAiProtocol` + `SseReader`), and
   `ChatViewModel` uses it whenever a provider *and* model are configured — otherwise it keeps the
@@ -126,7 +138,7 @@ Stream license headers stay in place (see `LICENSE`).
 ```bash
 ./gradlew :zyn-chat-app:assembleRelease    # what CI builds: the signed release APK
 ./gradlew :zyn-chat-app:assembleDebug      # local development only
-./gradlew :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest
+./gradlew :zyn-chat-app:testDebugUnitTest :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest
 ./gradlew lint detekt                      # static analysis
 ```
 
@@ -169,7 +181,7 @@ The keystore is **never committed** (`*.jks`, `signing.properties`, `.secrets/` 
 Setup and UI/UX redesign are done; the drawer, composer, dictation and model picker are real UI.
 
 Implemented: the providers screen (known provider → validated key → real `/models`), encrypted
-device-local key storage, model discovery with in-house brand marks, and bring-your-own-key streaming
+device-local key storage, model discovery with real brand marks, and bring-your-own-key streaming
 answers kept per conversation with derived titles.
 
 Not implemented yet: request routing (the Routing screen is presentation only), the drawer search
