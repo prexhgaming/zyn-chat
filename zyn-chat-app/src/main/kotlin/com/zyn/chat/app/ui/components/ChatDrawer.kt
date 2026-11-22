@@ -37,15 +37,21 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +61,7 @@ import com.zyn.chat.app.R
 import com.zyn.chat.app.presentation.conversations.Conversation
 import com.zyn.chat.app.presentation.conversations.RecentSection
 import com.zyn.chat.app.presentation.conversations.groupedByRecentSection
+import com.zyn.chat.app.presentation.conversations.matching
 import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.RowShape
 import io.getstream.chat.android.models.User
@@ -76,8 +83,10 @@ import io.getstream.chat.android.models.User
  * @param onUserInfoClick Invoked when the profile row is tapped.
  * @param onProvidersClick Invoked when "Providers" is tapped.
  * @param onRoutingClick Invoked when "Routing" is tapped.
- * @param onSearchClick Invoked when the search action is tapped.
  * @param modifier Applied to the drawer.
+ *
+ * Search is the drawer's own state rather than a callback: it filters nothing outside the drawer, and
+ * while it is open the recents area becomes a flat result list.
  */
 @Composable
 fun ChatDrawer(
@@ -91,11 +100,22 @@ fun ChatDrawer(
     onUserInfoClick: () -> Unit,
     onProvidersClick: () -> Unit,
     onRoutingClick: () -> Unit,
-    onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var renameTarget by remember { mutableStateOf<Conversation?>(null) }
     var deleteTarget by remember { mutableStateOf<Conversation?>(null) }
+
+    // Search lives here rather than in the app's navigation state: nothing outside the drawer reads it,
+    // and leaving search clears it, so a filter can never be left on unseen.
+    var searchActive by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    val closeSearch = {
+        searchActive = false
+        searchQuery = ""
+        keyboardController?.hide()
+    }
 
     Column(
         modifier = modifier
@@ -103,7 +123,18 @@ fun ChatDrawer(
             .background(MaterialTheme.colorScheme.surface)
             .systemBarsPadding(),
     ) {
-        DrawerHeader(onSearchClick = onSearchClick)
+        DrawerHeader(
+            searchActive = searchActive,
+            onSearchOpen = { searchActive = true },
+            onSearchClose = closeSearch,
+        )
+
+        if (searchActive) {
+            DrawerSearchField(
+                value = searchQuery,
+                onValueChange = { query -> searchQuery = query },
+            )
+        }
 
         Column(modifier = Modifier.padding(horizontal = 8.dp)) {
             DrawerNavItem(
@@ -123,48 +154,85 @@ fun ChatDrawer(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
         )
 
+        val results = remember(conversations, searchQuery) { conversations.matching(searchQuery) }
+
         DrawerSectionLabel(
-            text = stringResource(R.string.zyn_drawer_recents),
+            text = stringResource(
+                if (searchActive) R.string.zyn_drawer_results else R.string.zyn_drawer_recents,
+            ),
             modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 6.dp),
         )
 
-        if (conversations.isEmpty()) {
-            Text(
-                text = stringResource(R.string.zyn_drawer_empty),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-            )
-            Spacer(modifier = Modifier.weight(1f))
-        } else {
-            val sections = remember(conversations) {
-                conversations.groupedByRecentSection(System.currentTimeMillis())
+        when {
+            conversations.isEmpty() -> {
+                DrawerHint(text = stringResource(R.string.zyn_drawer_empty))
+                Spacer(modifier = Modifier.weight(1f))
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-            ) {
-                sections.forEach { (section, sectionConversations) ->
-                    item(key = "section-$section") {
-                        DrawerSectionLabel(
-                            text = section.label(),
-                            modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 2.dp),
-                        )
-                    }
+            // Searching found nothing: say what was searched for and offer to clear it, so the state
+            // explains itself instead of looking like an empty drawer.
+            searchActive && results.isEmpty() -> {
+                DrawerHint(
+                    text = stringResource(R.string.zyn_drawer_no_results, searchQuery.trim()),
+                )
+                DrawerHintAction(
+                    text = stringResource(R.string.zyn_drawer_search_clear),
+                    onClick = { searchQuery = "" },
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
+            // One flat list while searching: the Today/Yesterday buckets answer "when was this used",
+            // which is not the question the search field asks.
+            searchActive -> {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                ) {
                     items(
                         key = Conversation::id,
-                        items = sectionConversations,
+                        items = results,
                     ) { conversation ->
-                        DrawerConversationItem(
-                            title = conversation.title,
+                        DrawerConversationRow(
+                            conversation = conversation,
                             selected = conversation.id == selectedConversationId,
-                            modelSlug = conversation.modelSlug,
                             onClick = { onConversationClick(conversation) },
                             onRename = { renameTarget = conversation },
                             onDelete = { deleteTarget = conversation },
                         )
+                    }
+                }
+            }
+
+            else -> {
+                val sections = remember(conversations) {
+                    conversations.groupedByRecentSection(System.currentTimeMillis())
+                }
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    sections.forEach { (section, sectionConversations) ->
+                        item(key = "section-$section") {
+                            DrawerSectionLabel(
+                                text = section.label(),
+                                modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 2.dp),
+                            )
+                        }
+
+                        items(
+                            key = Conversation::id,
+                            items = sectionConversations,
+                        ) { conversation ->
+                            DrawerConversationRow(
+                                conversation = conversation,
+                                selected = conversation.id == selectedConversationId,
+                                onClick = { onConversationClick(conversation) },
+                                onRename = { renameTarget = conversation },
+                                onDelete = { deleteTarget = conversation },
+                            )
+                        }
                     }
                 }
             }
@@ -202,7 +270,9 @@ fun ChatDrawer(
 
 @Composable
 private fun DrawerHeader(
-    onSearchClick: () -> Unit,
+    searchActive: Boolean,
+    onSearchOpen: () -> Unit,
+    onSearchClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -223,15 +293,60 @@ private fun DrawerHeader(
             modifier = Modifier.weight(1f),
         )
 
-        IconButton(onClick = onSearchClick) {
+        IconButton(onClick = if (searchActive) onSearchClose else onSearchOpen) {
             Icon(
-                imageVector = ZynIcons.Search,
-                contentDescription = stringResource(R.string.zyn_drawer_search),
+                imageVector = if (searchActive) ZynIcons.Close else ZynIcons.Search,
+                contentDescription = stringResource(
+                    if (searchActive) R.string.zyn_drawer_search_close else R.string.zyn_drawer_search,
+                ),
                 modifier = Modifier.size(21.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+/**
+ * The drawer's search field, shown only while searching.
+ *
+ * Opening search is a deliberate act, so the field takes focus and the keyboard comes up on its own
+ * rather than making the person tap the field first. There is no clear button inside the field: the
+ * header's close action is the single way out, so the drawer does not show two different "x" buttons.
+ */
+@Composable
+private fun DrawerSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        placeholder = {
+            Text(
+                text = stringResource(R.string.zyn_drawer_search_hint),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = ZynIcons.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .focusRequester(focusRequester),
+    )
 }
 
 @Composable
@@ -262,6 +377,61 @@ private fun DrawerSectionLabel(
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier,
+    )
+}
+
+/** A muted line of guidance, used for the drawer's empty states. */
+@Composable
+private fun DrawerHint(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+    )
+}
+
+/** The way out of an empty state, tinted with the accent so it reads as the action. */
+@Composable
+private fun DrawerHintAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier
+            .padding(start = 14.dp)
+            .clip(RowShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+    )
+}
+
+/**
+ * One conversation in the recents list, wherever that list is: the sectioned recents and the flat
+ * search results render the same row, so the two can never drift apart.
+ */
+@Composable
+private fun DrawerConversationRow(
+    conversation: Conversation,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    DrawerConversationItem(
+        title = conversation.title,
+        selected = selected,
+        modelSlug = conversation.modelSlug,
+        onClick = onClick,
+        onRename = onRename,
+        onDelete = onDelete,
     )
 }
 

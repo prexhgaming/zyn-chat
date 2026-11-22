@@ -210,7 +210,6 @@ public fun AiChatApp(
                         onManageProviders()
                     },
                     onRoutingClick = { scope.launch { drawerState.close() } },
-                    onSearchClick = { },
                 )
             }
         },

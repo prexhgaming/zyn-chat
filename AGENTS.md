@@ -136,7 +136,10 @@ Stream license headers stay in place (see `LICENSE`).
   `ui/providers/ProvidersScreen.kt`. Adding a provider validates the key against that provider's real
   `/models` endpoint before anything is saved. **Never add a second provider-management path or
   screen.**
-- **Presentation only for now**: routing, the drawer search action, the profile row.
+- **Presentation only for now**: routing and the profile row. The drawer's search is no longer among
+  them: it filters the recents list through `matching()` in
+  `presentation/conversations/ConversationSearch.kt`, and its state lives in `ChatDrawer`, not in the
+  app's navigation state.
 
 ## Commands
 
