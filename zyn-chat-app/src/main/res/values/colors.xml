@@ -15,5 +15,7 @@
     limitations under the License.
 -->
 <resources>
-    <color name="ic_launcher_background">#FF005FFF</color>
+    <!-- The launcher icon's background, which is the app's brand colour: the same green as the
+         in-app accent (see ui/theme/Color.kt, Green). The foreground glyph is white. -->
+    <color name="ic_launcher_background">#FF60A832</color>
 </resources>

@@ -20,15 +20,19 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// Brand
-private val Blue = Color(0xFF0A6CF5)
-private val BlueBright = Color(0xFF4C93FF)
-private val BlueDeep = Color(0xFF0546A6)
-private val BlueSoft = Color(0xFFBBD6FF)
+// Brand — the accent seed. Selection states, primary actions and the send button read this.
+private val Green = Color(0xFF60A832)
+
+// Content on the accent wash. Text on the accent itself is Ink: onAccentColor picks a caption by
+// contrast rather than assuming white, which is unreadable on a seed this light.
+private val GreenDeep = Color(0xFF1F3D0C)
 
 // Neutrals
 private val White = Color(0xFFFFFFFF)
-private val Ink = Color(0xFF0E1013)
+
+// The near-black used for body text, and the caption on a light accent (see onAccentColor).
+internal val Ink = Color(0xFF0E1013)
+
 private val Mist = Color(0xFFF2F3F5)
 private val Slate = Color(0xFF666D7A)
 private val SlateSoft = Color(0xFF9BA2AF)
@@ -51,18 +55,18 @@ private val RedDeep = Color(0xFF3A0B0B)
 
 internal val LightColorScheme =
     lightColorScheme(
-        primary = Blue,
-        onPrimary = White,
-        primaryContainer = Blue.copy(alpha = 0.10f),
-        onPrimaryContainer = BlueDeep,
-        secondary = Blue,
-        onSecondary = White,
-        secondaryContainer = Blue.copy(alpha = 0.10f),
-        onSecondaryContainer = BlueDeep,
-        tertiary = Blue,
-        onTertiary = White,
-        tertiaryContainer = Blue.copy(alpha = 0.12f),
-        onTertiaryContainer = BlueDeep,
+        primary = Green,
+        onPrimary = Ink,
+        primaryContainer = Green.copy(alpha = 0.10f),
+        onPrimaryContainer = GreenDeep,
+        secondary = Green,
+        onSecondary = Ink,
+        secondaryContainer = Green.copy(alpha = 0.10f),
+        onSecondaryContainer = GreenDeep,
+        tertiary = Green,
+        onTertiary = Ink,
+        tertiaryContainer = Green.copy(alpha = 0.12f),
+        onTertiaryContainer = GreenDeep,
         background = White,
         onBackground = Ink,
         surface = White,
@@ -79,18 +83,18 @@ internal val LightColorScheme =
 
 internal val DarkColorScheme =
     darkColorScheme(
-        primary = BlueBright,
-        onPrimary = White,
-        primaryContainer = BlueBright.copy(alpha = 0.16f),
-        onPrimaryContainer = BlueBright,
-        secondary = BlueBright,
-        onSecondary = White,
-        secondaryContainer = BlueBright.copy(alpha = 0.18f),
-        onSecondaryContainer = BlueSoft,
-        tertiary = BlueBright,
+        primary = Green,
+        onPrimary = Ink,
+        primaryContainer = Green.copy(alpha = 0.16f),
+        onPrimaryContainer = Green,
+        secondary = Green,
+        onSecondary = Ink,
+        secondaryContainer = Green.copy(alpha = 0.18f),
+        onSecondaryContainer = Green,
+        tertiary = Green,
         onTertiary = Ink,
-        tertiaryContainer = BlueBright.copy(alpha = 0.20f),
-        onTertiaryContainer = BlueSoft,
+        tertiaryContainer = Green.copy(alpha = 0.20f),
+        onTertiaryContainer = Green,
         background = NightBackground,
         onBackground = NightText,
         surface = NightSurface,

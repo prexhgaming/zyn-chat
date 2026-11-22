@@ -25,9 +25,13 @@ Stream license headers stay in place (see `LICENSE`).
   Markdown heading mapping), `Shape.kt` (radii). Change colours/type there, not inline.
 - **The accent is a token, never a literal colour**: `ui/theme/Accent.kt` exposes
   `MaterialTheme.accent` (`primary`, `onPrimary`, `tint`, `border`). It falls back to the colour
-  scheme's primary (the app's blue). Selection states, the send button and the model picker read
-  these tokens, so a future settings screen swaps the accent via `AppTheme(accent = ...)` without
-  touching components. Do not hardcode an accent colour anywhere.
+  scheme's primary, which is the brand green (`Green` in `Color.kt`, seed `#60A832`). Selection
+  states, the send button and the model picker read these tokens, so a future settings screen swaps
+  the accent via `AppTheme(accent = ...)` without touching components. Do not hardcode an accent
+  colour anywhere.
+- Captions on the accent come from `onAccentColor(seed)`, never a fixed white: white on this green is
+  2.9:1, below the 3:1 even a non-text element needs, while `Ink` reaches 6.4:1. It picks by WCAG
+  luminance, and `AccentTest` keeps the shipped accent pairs at or above 4.5:1.
 - UI icons are `ImageVector`s in `ui/icons/ZynIcons.kt` (shared 24x24 viewport, 1.7dp stroke). The
   app's older `res/drawable/ic_*` icons are the Material-Symbols ones the top bar still uses.
 - **Brand marks are generated, never hand-drawn**: `tools/lobe-icons/convert.py` downloads the
