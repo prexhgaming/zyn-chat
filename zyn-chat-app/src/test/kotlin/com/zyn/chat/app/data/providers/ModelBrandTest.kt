@@ -130,9 +130,11 @@ class ModelBrandTest {
 
     @Test
     fun `nothing recognisable stays unrecognised rather than guessing`() {
+        // The provider has to be unrecognisable too: when the name says nothing, the provider id is
+        // the deliberate fallback — an unnamed model on OpenAI is still OpenAI's (see the test above).
         assertNull(brandIdOf("mystery-model-9000", providerId = "some-local-gateway"))
-        assertNull(brandIdOf(""))
-        assertNull(brandIdOf("   "))
+        assertNull(brandIdOf("", providerId = "some-local-gateway"))
+        assertNull(brandIdOf("   ", providerId = "some-local-gateway"))
     }
 
     @Test
