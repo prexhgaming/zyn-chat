@@ -138,7 +138,7 @@ class ProviderCatalogTest {
     }
 
     @Test
-    fun `the catalog is not one-sided: it offers both supported and unsupported providers`() {
+    fun `the catalog offers both supported and unsupported providers`() {
         assertTrue(ProviderCatalog.all.any { it.supported })
         assertTrue(ProviderCatalog.all.any { !it.supported })
     }
