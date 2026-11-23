@@ -40,6 +40,10 @@ Stream license headers stay in place (see `LICENSE`).
   `res/drawable/ic_model_<id>.xml`, `data/providers/BrandCatalog.kt` and `ui/brand/ModelMarks.kt`.
   Do not hand-edit those three: add a row to the script's brand table and re-run it from the repo root.
   The drawables are `currentColor` mono glyphs, so they tint with the theme like any other icon.
+  The LobeHub sources declare `fill-rule="evenodd"` on the root `<svg>`, which inherits into every
+  path; the converter resolves it (path attribute → `style` → nearest ancestor) into
+  `android:fillType`. Dropping that inheritance silently fills cutouts solid — the DeepSeek whale
+  bug — so keep ancestor attribute inheritance in the path conversion.
 - The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `SmartSendButton.kt`
   + `ModelSelector.kt`. The library's `ChatComposer` and `SpeechToTextButton` are intentionally left
   untouched (and unused by the app), so the `zyn-chat-compose` Paparazzi snapshots keep matching —
@@ -106,7 +110,13 @@ Stream license headers stay in place (see `LICENSE`).
   legacy Stream path untouched. `presentation/chat/ProviderAnswerSource.kt` owns the selection, the
   key lookup and the failure copy. **Engines are stateless**: a request carries its whole
   conversation, built from that conversation alone, and collecting is what makes the HTTP call — so
-  cancelling (stop, or leaving the chat) cancels it and no answer can land in another chat.
+   cancelling (stop, or leaving the chat) cancels it and no answer can land in another chat.
+- **Failed sends are recoverable**: a provider failure marks the *question* `isFailed` with the
+  provider's reason (`ChatUiState.Message.errorReason`) and drops any partial answer, instead of
+  inserting a failure reply. `ChatViewModel.retryMessage` resends through the normal send path and
+  `discardMessage` removes the question so edit can put its text back into the composer
+  (`ZynComposer`'s `draftText` / `onDraftConsumed`, consumed once). A failed exchange is never
+  written to `ConversationRepository`, so a retry starts from clean history.
 - Conversations: `data/chat/ConversationStore.kt` keeps **one JSON file per conversation** under
   `filesDir/conversations/`, and `domain/chat/ConversationRepository.kt` is the **only** source of a
   conversation's turns and title, always keyed by conversation id. Never add a shared or global message

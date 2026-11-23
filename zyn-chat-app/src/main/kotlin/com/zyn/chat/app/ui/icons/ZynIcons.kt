@@ -175,6 +175,38 @@ public object ZynIcons {
         lineTo(17.6f, 7.4f)
     }
 
+    /** Triangle with an exclamation mark. Used by failed-message errors. */
+    public val Warning: ImageVector = outline("ZynWarning") {
+        moveTo(12f, 3.8f)
+        lineTo(20.4f, 19.4f)
+        lineTo(3.6f, 19.4f)
+        close()
+        segment(12f, 9.8f, 12f, 14.4f)
+        segment(12f, 16.9f, 12f, 17.05f)
+    }
+
+    /** Pencil. Used by the edit action on a message. */
+    public val Edit: ImageVector = outline("ZynEdit") {
+        moveTo(4.8f, 19.2f)
+        lineTo(5.7f, 15.3f)
+        lineTo(15.8f, 5.2f)
+        quadTo(16.5f, 4.5f, 17.2f, 5.2f)
+        lineTo(18.8f, 6.8f)
+        quadTo(19.5f, 7.5f, 18.8f, 8.2f)
+        lineTo(8.7f, 18.3f)
+        close()
+        segment(14.5f, 6.5f, 17.5f, 9.5f)
+    }
+
+    /** Two overlapping sheets. Used by the copy action on a message. */
+    public val Copy: ImageVector = outline("ZynCopy") {
+        roundRect(8.8f, 8.8f, 10.6f, 10.6f, 2.2f)
+        moveTo(15.2f, 4.6f)
+        lineTo(7f, 4.6f)
+        quadTo(5.6f, 4.6f, 5.6f, 6f)
+        lineTo(5.6f, 13.8f)
+    }
+
     /** Cross. Used to remove a staged attachment. */
     public val Close: ImageVector = outline("ZynClose") {
         segment(6.6f, 6.6f, 17.4f, 17.4f)

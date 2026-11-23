@@ -86,6 +86,9 @@ import kotlinx.coroutines.launch
  * @param onModelClick Invoked when the model pill is tapped, to open the model picker.
  * @param imageDecision What to do about pictures with the selected model: attach them, refuse them
  *   with an explanation, or allow them with a warning when the model's abilities are not known.
+ * @param draftText Text pushed into the field from outside, such as by the edit action on a failed
+ *   message. Applied once, then reported through [onDraftConsumed].
+ * @param onDraftConsumed Invoked after [draftText] has been placed in the field.
  * @param modifier Applied to the composer.
  */
 @Composable
@@ -96,6 +99,8 @@ fun ZynComposer(
     modelName: String?,
     onModelClick: () -> Unit,
     imageDecision: ImageAttachmentDecision = ImageAttachmentDecision.Warn,
+    draftText: String? = null,
+    onDraftConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var messageData by rememberSaveable(stateSaver = MessageData.Saver) {
@@ -173,6 +178,15 @@ fun ZynComposer(
     // Back cancels dictation instead of leaving the screen while the microphone is live.
     BackHandler(enabled = speechInput.isActive) {
         speechInput.cancel()
+    }
+
+    // A draft pushed from outside (the edit action on a failed message) fills the field once and is
+    // then consumed, so a rotation or a recomposition does not paste it a second time.
+    LaunchedEffect(draftText) {
+        if (draftText != null) {
+            messageData = messageData.copy(text = draftText)
+            onDraftConsumed()
+        }
     }
 
     val startDictation: () -> Unit = {

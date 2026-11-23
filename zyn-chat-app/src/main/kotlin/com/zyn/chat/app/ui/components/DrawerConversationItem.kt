@@ -78,7 +78,7 @@ fun DrawerConversationItem(
             BrandMark(
                 label = title,
                 markRes = markFor("", modelSlug.orEmpty()),
-                size = 22.dp,
+                size = 20.dp,
             )
 
             Text(
@@ -95,7 +95,7 @@ fun DrawerConversationItem(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 10.dp),
+                    .padding(start = 8.dp),
             )
         }
 

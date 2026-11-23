@@ -17,6 +17,10 @@
 package com.zyn.chat.app.ui.chat
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +55,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.material3.rememberModalBottomSheetState
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.R
 import com.zyn.chat.app.data.providers.ImageAttachmentDecision
@@ -65,6 +74,8 @@ import com.zyn.chat.app.ui.components.ChatEmptyState
 import com.zyn.chat.app.ui.components.ChatMessageItem
 import com.zyn.chat.app.ui.components.ChatScaffold
 import com.zyn.chat.app.ui.components.ChatTopBar
+import com.zyn.chat.app.ui.components.ErrorActionSheet
+import com.zyn.chat.app.ui.components.MessageActionMenu
 import com.zyn.chat.compose.ui.component.AITypingIndicator
 import kotlinx.coroutines.delay
 
@@ -105,13 +116,39 @@ fun ChatScreen(
 
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
+    // The failed message whose recovery actions (retry / edit) are showing, if any.
+    var errorActionMessage by remember { mutableStateOf<ChatUiState.Message?>(null) }
+
+    // The message whose long-press action menu is showing, if any.
+    var actionMenuMessage by remember { mutableStateOf<ChatUiState.Message?>(null) }
+
+    // Text pushed into the composer by the edit action; the composer consumes it once.
+    var editDraft by remember { mutableStateOf<String?>(null) }
+
+    val actionMenuState = rememberModalBottomSheetState()
+
+    val copyMessage: (ChatUiState.Message) -> Unit = { message ->
+        val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboard?.setPrimaryClip(ClipData.newPlainText("message", message.content))
+        Toast.makeText(appContext, R.string.zyn_message_copied, Toast.LENGTH_SHORT).show()
+    }
+
+    // Editing a failed message drops it and puts its text back into the composer.
+    val editFailedMessage: (ChatUiState.Message) -> Unit = { message ->
+        editDraft = message.content
+        chatViewModel.discardMessage(message.id)
+    }
+
     // Scroll to bottom when the user sends a new message
     LaunchedEffect(state) {
         if (state.getCurrentUserMessage() != null) {
             delay(100) // Small delay to ensure layout is complete
             if (listState.layoutInfo.totalItemsCount > 0) {
                 // In reverse layout, scroll to item 0 to show the bottom (newest messages)
-                listState.animateScrollToItem(0)
+                listState.animateScrollToItem(
+                    index = 0,
+                    scrollOffset = 0,
+                )
             }
         }
     }
@@ -124,6 +161,28 @@ fun ChatScreen(
     }
 
     val currentAssistantMessage = state.getCurrentAssistantMessage()
+
+    errorActionMessage?.let { failed ->
+        ErrorActionSheet(
+            errorReason = failed.errorReason ?: stringResource(R.string.zyn_error_failed_send),
+            onRetry = { chatViewModel.retryMessage(failed.id) },
+            onEdit = { editFailedMessage(failed) },
+            onDismiss = { errorActionMessage = null },
+        )
+    }
+
+    actionMenuMessage?.let { message ->
+        MessageActionMenu(
+            onCopy = { copyMessage(message) },
+            onRetry = message.takeIf(ChatUiState.Message::isFailed)
+                ?.let { failed -> { chatViewModel.retryMessage(failed.id) } },
+            onEdit = message.takeIf { it.isFailed && it.role == ChatUiState.Message.Role.User }
+                ?.let { failed -> { editFailedMessage(failed) } },
+            onDelete = null,
+            onDismiss = { actionMenuMessage = null },
+            sheetState = actionMenuState,
+        )
+    }
 
     ChatScaffold(
         modifier = modifier.fillMaxSize(),
@@ -153,12 +212,17 @@ fun ChatScreen(
                     modelName = modelName,
                     onModelClick = onModelClick,
                     imageDecision = imageAttachmentDecision,
+                    draftText = editDraft,
+                    onDraftConsumed = { editDraft = null },
                 )
             }
         },
     ) { contentPadding ->
         AnimatedContent(
             targetState = state.isLoading,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            },
         ) { loading ->
             if (loading) {
                 Box(
@@ -203,10 +267,27 @@ fun ChatScreen(
                         key = ChatUiState.Message::id,
                         items = messages,
                     ) { message ->
-                        ChatMessageItem(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
-                            message = message,
-                        )
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = true,
+                            enter = androidx.compose.animation.fadeIn(
+                                animationSpec = androidx.compose.animation.core.tween(300),
+                            ) + androidx.compose.animation.slideInVertically(
+                                animationSpec = androidx.compose.animation.core.spring(
+                                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                                    stiffness = androidx.compose.animation.core.Spring.StiffnessLow,
+                                ),
+                                initialOffsetY = { it / 4 },
+                            ),
+                        ) {
+                            ChatMessageItem(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 7.dp)
+                                    .animateItemPlacement(),
+                                message = message,
+                                onErrorAction = { errorActionMessage = it },
+                                onLongPress = { actionMenuMessage = it },
+                            )
+                        }
                     }
                 }
             }

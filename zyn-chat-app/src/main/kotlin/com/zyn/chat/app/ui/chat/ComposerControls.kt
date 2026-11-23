@@ -74,43 +74,12 @@ internal fun AttachmentButton(
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), CircleShape)
-                .clickable(enabled = enabled) { expanded = true },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = ZynIcons.Plus,
-                contentDescription = stringResource(R.string.zyn_composer_attach),
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        DropdownMenu(
+        FloatingActionMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.zyn_composer_attach_photos)) },
-                leadingIcon = { AttachmentMenuIcon(icon = ZynIcons.Image) },
-                onClick = {
-                    expanded = false
-                    onPhotosClick()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.zyn_composer_attach_files)) },
-                leadingIcon = { AttachmentMenuIcon(icon = ZynIcons.File) },
-                onClick = {
-                    expanded = false
-                    onFilesClick()
-                },
-            )
-        }
+            onPhotoClick = onPhotosClick,
+            onDocumentClick = onFilesClick,
+            onToggle = { if (enabled) expanded = !expanded },
+        )
     }
 }
 

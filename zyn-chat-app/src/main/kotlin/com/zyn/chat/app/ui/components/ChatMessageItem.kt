@@ -17,16 +17,22 @@
 package com.zyn.chat.app.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,12 +40,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import com.zyn.chat.app.R
 import com.zyn.chat.app.presentation.chat.ChatUiState
 import com.zyn.chat.app.ui.chat.ImagePreviewDialog
 import com.zyn.chat.app.ui.chat.imageAttachmentsOf
+import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.BubbleShape
 import com.zyn.chat.compose.ui.component.AIMessageParts
 import com.zyn.chat.compose.ui.component.StreamingText
@@ -59,11 +68,15 @@ import io.getstream.chat.android.models.Message
  *
  * @param message The message to display.
  * @param modifier Applied to the message.
+ * @param onErrorAction Invoked when the error indicator of a failed message is tapped.
+ * @param onLongPress Invoked when the message is long pressed, to open its action menu.
  */
 @Composable
 public fun ChatMessageItem(
     message: ChatUiState.Message,
     modifier: Modifier = Modifier,
+    onErrorAction: ((ChatUiState.Message) -> Unit)? = null,
+    onLongPress: ((ChatUiState.Message) -> Unit)? = null,
 ) {
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * MAX_BUBBLE_FRACTION).dp
 
@@ -83,6 +96,8 @@ public fun ChatMessageItem(
                 maxBubbleWidth = maxBubbleWidth,
                 alignment = Alignment.CenterEnd,
                 onImageClick = openImage,
+                onErrorClick = { onErrorAction?.invoke(message) },
+                onLongClick = { onLongPress?.invoke(message) },
             )
 
             is ChatUiState.Message.Role.Other -> BubbleMessage(
@@ -90,6 +105,7 @@ public fun ChatMessageItem(
                 maxBubbleWidth = maxBubbleWidth,
                 alignment = Alignment.CenterStart,
                 onImageClick = openImage,
+                onLongClick = { onLongPress?.invoke(message) },
             )
         }
     }
@@ -110,7 +126,7 @@ private fun AssistantMessage(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (message.parts.isNotEmpty()) {
             AIMessageParts(parts = message.parts)
@@ -138,12 +154,26 @@ private fun BubbleMessage(
     alignment: Alignment,
     onImageClick: (Attachment) -> Unit,
     modifier: Modifier = Modifier,
+    onErrorClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = alignment,
     ) {
-        MessageBubble(modifier = Modifier.widthIn(max = maxBubbleWidth)) {
+        MessageBubble(
+            modifier = Modifier
+                .widthIn(max = maxBubbleWidth)
+                .then(
+                    if (onLongClick != null) {
+                        Modifier.pointerInput(onLongClick) {
+                            detectTapGestures(onLongPress = { onLongClick() })
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
             MessageAttachments(
                 message = message,
                 isMine = true,
@@ -154,6 +184,14 @@ private fun BubbleMessage(
                 StreamingText(
                     text = message.content,
                     animate = false,
+                )
+            }
+
+            // Error indicator for failed user messages; tapping it opens the recovery actions.
+            if (message.isFailed && message.role == ChatUiState.Message.Role.User) {
+                ErrorIndicator(
+                    errorReason = message.errorReason ?: stringResource(R.string.zyn_error_failed_send),
+                    onClick = { onErrorClick?.invoke() },
                 )
             }
         }
@@ -212,8 +250,9 @@ private fun MessageBubble(
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
             content = content,
         )
     }
@@ -221,3 +260,37 @@ private fun MessageBubble(
 
 /** Share of the screen width a bubble may take up. */
 private const val MAX_BUBBLE_FRACTION = 0.82f
+
+/**
+ * Error indicator for failed messages.
+ *
+ * Shows a warning icon and error message that can be tapped.
+ *
+ * @param errorReason The error description
+ * @param onClick Invoked when the indicator is tapped
+ */
+@Composable
+private fun ErrorIndicator(
+    errorReason: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = ZynIcons.Warning,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = errorReason,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}

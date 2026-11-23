@@ -55,6 +55,8 @@ data class ChatUiState(
      * @param attachments List of attachments associated with the message
      * @param parts The AI reply's steps, such as its reasoning and tool calls
      * @param isGenerating Indicates if the message is currently being generated
+     * @param isFailed Indicates if the message failed to send (user messages only)
+     * @param errorReason Human-readable error description for failed messages
      */
     data class Message(
         val id: String,
@@ -63,6 +65,8 @@ data class ChatUiState(
         val attachments: List<Attachment>,
         val parts: List<AIMessagePart>,
         val isGenerating: Boolean,
+        val isFailed: Boolean = false,
+        val errorReason: String? = null,
     ) {
         /**
          * Represents the role of a message sender in the conversation.

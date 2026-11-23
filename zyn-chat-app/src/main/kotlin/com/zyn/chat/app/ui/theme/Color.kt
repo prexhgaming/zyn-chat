@@ -55,6 +55,18 @@ private val RedSoft = Color(0xFFFF6B6B)
 private val RedWash = Color(0xFFFFF1F1)
 private val RedDeep = Color(0xFF3A0B0B)
 
+// Success states
+private val SuccessGreen = Color(0xFF059669)
+private val SuccessGreenSoft = Color(0xFF34D399)
+private val SuccessWash = Color(0xFFF0FDF4)
+private val SuccessDeep = Color(0xFF064E3B)
+
+// Warning states
+private val Amber = Color(0xFFF59E0B)
+private val AmberSoft = Color(0xFFFBBF24)
+private val AmberWash = Color(0xFFFFFBEB)
+private val AmberDeep = Color(0xFF78350F)
+
 internal val LightColorScheme =
     lightColorScheme(
         primary = Green,

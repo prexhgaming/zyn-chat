@@ -43,6 +43,13 @@
     <string name="zyn_reply_generating">Generating response</string>
     <string name="zyn_dialog_delete_title">Delete chat</string>
     <string name="zyn_dialog_delete_message">This conversation will be deleted permanently.</string>
+    <string name="zyn_error_failed_send">Failed to send</string>
+    <string name="zyn_error_title">Message failed</string>
+    <string name="zyn_error_retry">Retry</string>
+    <string name="zyn_error_edit">Edit</string>
+    <string name="zyn_error_dismiss">Dismiss</string>
+    <string name="zyn_message_copied">Copied to clipboard</string>
+    <string name="zyn_action_copy">Copy</string>
 
     <!-- Composer -->
     <string name="zyn_composer_placeholder">Message Zyn Chat</string>

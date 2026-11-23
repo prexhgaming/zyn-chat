@@ -305,6 +305,33 @@ internal class ChatViewModel(
         }
     }
 
+    /**
+     * Resends a message that failed. The failed attempt is dropped first, so the retry does not
+     * duplicate the question, and the send goes through the normal path: the same routing, provider
+     * and model a message typed just now would take.
+     *
+     * @param messageId Id of the failed message to resend.
+     */
+    fun retryMessage(messageId: String) {
+        val failed = _uiState.value.messages.firstOrNull { it.id == messageId } ?: return
+        if (!failed.isFailed || failed.role != ChatUiState.Message.Role.User) return
+
+        val text = failed.content.trim()
+        if (text.isEmpty()) return
+
+        localMessages.update { current -> current.filterNot { it.id == messageId } }
+        sendMessage(MessageData(text = text))
+    }
+
+    /**
+     * Removes a failed message, so its text can be edited in the composer and sent again fresh.
+     *
+     * @param messageId Id of the failed message to remove.
+     */
+    fun discardMessage(messageId: String) {
+        localMessages.update { current -> current.filterNot { it.id == messageId } }
+    }
+
     private suspend fun startAIAgentForChannel(cid: String): Result<Unit> {
         val (channelType, channelId) = cid.cidToTypeAndId()
         val platform = "openai"
@@ -364,6 +391,7 @@ internal class ChatViewModel(
      */
     private suspend fun answerWithProvider(text: String, selection: ProviderSelection) {
         val answerId = UUID.randomUUID().toString()
+        val questionId = UUID.randomUUID().toString()
         val conversationId = cid.value ?: localConversationId
 
         // Built before the question is added, so it appears in the request exactly once. The stored
@@ -384,7 +412,7 @@ internal class ChatViewModel(
             }
         }) + ChatTurn(role = ChatRole.User, content = text)
 
-        localMessages.update { listOf(localMessage(ChatUiState.Message.Role.User, text)) + it }
+        localMessages.update { listOf(localMessage(ChatUiState.Message.Role.User, text, questionId)) + it }
 
         val answer = StringBuilder()
         var finalState: ChatUiState.AssistantState = ChatUiState.AssistantState.Idle
@@ -408,9 +436,22 @@ internal class ChatViewModel(
         } catch (e: ProviderException) {
             logger.e { "Provider answer failed: ${e.reason}" }
             finalState = ChatUiState.AssistantState.Error
+            // The failure belongs to the question, not to a reply: the question is marked failed and
+            // carries the reason, which is what the retry and edit actions hang off. Any partial
+            // answer is dropped, so a retry starts clean instead of continuing a broken reply.
             localMessages.update { messages ->
-                val failure = localMessage(ChatUiState.Message.Role.Assistant, providerAnswers.failureText(e))
-                listOf(failure) + messages
+                messages
+                    .filterNot { it.id == answerId }
+                    .map { message ->
+                        if (message.id == questionId) {
+                            message.copy(
+                                isFailed = true,
+                                errorReason = providerAnswers.failureText(e),
+                            )
+                        } else {
+                            message
+                        }
+                    }
             }
         } finally {
             localMessages.update { messages ->
@@ -419,7 +460,7 @@ internal class ChatViewModel(
             _uiState.update { it.copy(assistantState = finalState) }
         }
 
-        if (answer.isNotBlank()) {
+        if (answer.isNotBlank() && finalState != ChatUiState.AssistantState.Error) {
             // Stored per conversation, and this is also where the conversation gets its name: a short
             // title derived on the device rather than the first message repeated.
             conversations.record(
