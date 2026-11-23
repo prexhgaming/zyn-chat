@@ -62,11 +62,16 @@ internal fun rememberUriImage(
 /**
  * Whether a picked URI is a picture the app should preview as one.
  *
- * The picker hands back a content URI whose path often ends with the real file name, which is the
- * best signal available without opening the file.
+ * The content resolver knows the type for a photo-picker URI, whose path is often just a numeric id
+ * with no extension, so the media type is asked first and the file name is only a fallback.
+ *
+ * @param contentResolver Resolver that reports the URI's media type.
  */
-internal fun Uri.looksLikeImage(): Boolean =
-    lastPathSegment?.substringAfterLast('.', "")?.lowercase().orEmpty() in IMAGE_EXTENSIONS
+internal fun Uri.looksLikeImage(contentResolver: ContentResolver): Boolean {
+    val mimeType = runCatching { contentResolver.getType(this) }.getOrNull()
+    if (mimeType != null && mimeType != GENERIC_MIME_TYPE) return mimeType.startsWith("image/")
+    return lastPathSegment?.substringAfterLast('.', "")?.lowercase().orEmpty() in IMAGE_EXTENSIONS
+}
 
 /** Name of the picked file, or an empty string when the provider does not expose one. */
 internal fun Uri.attachmentName(): String =
@@ -74,6 +79,9 @@ internal fun Uri.attachmentName(): String =
 
 /** Filename extensions treated as pictures. */
 private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "heic", "heif", "gif", "bmp", "avif")
+
+/** Media type a provider falls back to when it cannot tell what a file is. */
+private const val GENERIC_MIME_TYPE = "application/octet-stream"
 
 /**
  * Reads a scaled bitmap, or `null` when the URI cannot be decoded as an image.

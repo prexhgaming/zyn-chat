@@ -150,6 +150,13 @@ private suspend fun animateNewContent(
     val newContent = fullText.substring(currentText.length)
     val chunks = splitIntoWords(newContent)
 
+    // A backlog this size means the text arrived faster than the animation could show it. Chasing
+    // it word by word would only make the gap wider, so the rest is shown at once.
+    if (newContent.length >= CATCH_UP_CHARS) {
+        onUpdate(fullText)
+        return
+    }
+
     // Use StringBuilder for efficient string concatenation
     val builder = StringBuilder(currentText)
     for (chunk in chunks) {
@@ -183,6 +190,9 @@ private fun splitIntoWords(text: String): List<String> {
 
 // Regex to match whitespace or non-whitespace sequences for chunking.
 private val WordSplitRegex = Regex("""(\s+|\S+)""")
+
+/** New text at or above this many characters is shown at once instead of animated. */
+private const val CATCH_UP_CHARS = 120
 
 @Composable
 internal fun StreamingTextRendered() {

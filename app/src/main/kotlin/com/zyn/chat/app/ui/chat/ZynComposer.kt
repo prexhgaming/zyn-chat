@@ -58,7 +58,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.zyn.chat.app.R
-import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import com.zyn.chat.app.ui.chat.speech.SpeechErrorReason
 import com.zyn.chat.app.ui.chat.speech.rememberSpeechInput
 import com.zyn.chat.app.ui.theme.ComposerShape
@@ -86,8 +85,6 @@ import kotlinx.coroutines.launch
  * @param isGenerating Whether the assistant is currently generating a response.
  * @param modelName Name of the active model, or `null` when none is selected.
  * @param onModelClick Invoked when the model pill is tapped, to open the model picker.
- * @param imageDecision What to do about pictures with the selected model: attach them, refuse them
- *   with an explanation, or allow them with a warning when the model's abilities are not known.
  * @param draftText Text pushed into the field from outside, such as by the edit action on a failed
  *   message. Applied once, then reported through [onDraftConsumed].
  * @param onDraftConsumed Invoked after [draftText] has been placed in the field.
@@ -100,7 +97,6 @@ fun ZynComposer(
     isGenerating: Boolean,
     modelName: String?,
     onModelClick: () -> Unit,
-    imageDecision: ImageAttachmentDecision = ImageAttachmentDecision.Warn,
     draftText: String? = null,
     onDraftConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -117,25 +113,13 @@ fun ZynComposer(
     val permissionMessage = stringResource(R.string.zyn_composer_mic_permission)
     val speechErrors = speechErrorMessages()
 
-    // Copy for the two cases where pictures may not be usable with the selected model.
-    val modelLabel = modelName ?: stringResource(R.string.zyn_composer_image_this_model)
-    val imageBlockedMessage = stringResource(R.string.zyn_composer_image_blocked, modelLabel)
-    val imageUnknownMessage = stringResource(R.string.zyn_composer_image_unknown)
-
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MAX_ATTACHMENTS),
     ) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-
-        if (imageDecision == ImageAttachmentDecision.Blocked) {
-            // Nothing is staged for a model that cannot read pictures; the reason is shown instead.
-            scope.launch { snackbarHostState.showSnackbar(imageBlockedMessage) }
-        } else {
-            if (imageDecision == ImageAttachmentDecision.Warn) {
-                scope.launch { snackbarHostState.showSnackbar(imageUnknownMessage) }
-            }
-            messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
-        }
+        // Whatever the model does with pictures is the provider's business; a staged picture is
+        // simply staged, and a refusal comes back as an answer in the chat.
+        messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
     }
 
     val documentPicker = rememberLauncherForActivityResult(
@@ -144,11 +128,9 @@ fun ZynComposer(
         messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
     }
 
-    // Pictures taken with the camera follow the same capability rules as picked ones; the capture
-    // itself lives in [rememberCameraCapture].
+    // Pictures taken with the camera follow the same rules as picked ones: they are staged, and the
+    // provider decides whether it can read them.
     val startCamera = rememberCameraCapture(
-        decision = imageDecision,
-        modelLabel = modelLabel,
         snackbarHostState = snackbarHostState,
         onCapture = { capture ->
             messageData = messageData.copy(attachments = messageData.attachments + capture)
@@ -211,7 +193,7 @@ fun ZynComposer(
         if (granted) beginDictation() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    val canSend = messageData.text.isNotBlank() && !isGenerating
+    val canSend = (messageData.text.isNotBlank() || messageData.attachments.isNotEmpty()) && !isGenerating
 
     val sendMessage = {
         // Sending ends dictation first, so the two never fight over the field.
@@ -276,16 +258,11 @@ fun ZynComposer(
                         enabled = !isGenerating,
                         onCameraClick = startCamera,
                         onPhotosClick = {
-                            if (imageDecision == ImageAttachmentDecision.Blocked) {
-                                // Explain instead of opening a picker that could not be used.
-                                scope.launch { snackbarHostState.showSnackbar(imageBlockedMessage) }
-                            } else {
-                                photoPicker.launch(
-                                    PickVisualMediaRequest(
-                                        mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
-                                    ),
-                                )
-                            }
+                            photoPicker.launch(
+                                PickVisualMediaRequest(
+                                    mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
                         },
                         onFilesClick = { documentPicker.launch(DOCUMENT_MIME_TYPES) },
                     )
@@ -299,7 +276,7 @@ fun ZynComposer(
                     Box(modifier = Modifier.weight(1f))
 
                     SmartSendButton(
-                        hasText = messageData.text.isNotBlank(),
+                        hasText = messageData.text.isNotBlank() || messageData.attachments.isNotEmpty(),
                         isGenerating = isGenerating,
                         speechState = speechInput.state,
                         onSend = sendMessage,

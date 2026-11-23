@@ -168,10 +168,8 @@
     <string name="zyn_conversation_delete_confirm">Delete</string>
 
     <!-- Image attachments and the picture viewer. -->
-    <string name="zyn_composer_image_this_model">This model</string>
-    <string name="zyn_composer_image_blocked">%1$s can\'t read pictures. Pick a model that can, or send it as a file.</string>
-    <string name="zyn_composer_image_unknown">This model may not be able to read pictures, so sending one might fail.</string>
     <string name="zyn_image_preview_close">Close picture</string>
+    <string name="zyn_provider_error_images_refused">This model couldn\'t read the picture. Try a model that accepts images, or send it as a file.</string>
     <string name="zyn_message_image">Picture</string>
 
     <!-- Crash reporter. -->

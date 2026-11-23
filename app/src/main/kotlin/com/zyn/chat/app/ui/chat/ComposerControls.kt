@@ -35,24 +35,30 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
 import com.zyn.chat.app.ui.icons.ZynIcons
+import io.getstream.chat.android.models.Attachment
 
 /**
  * Attachments staged in the composer, shown on one line inside the composer's own field.
  *
  * A picture is drawn as a small copy of itself, so what will be sent is visible before it is sent;
- * anything that is not a picture stays a chip with its file name. The row scrolls rather than wraps,
- * so the composer never grows taller than the person expects.
+ * tapping it opens it full screen. Anything that is not a picture stays a chip with its file name.
+ * The row scrolls rather than wraps, so the composer never grows taller than the person expects.
  *
  * @param attachments Staged attachment URIs.
  * @param onRemove Invoked with the URI of the attachment that was dismissed.
@@ -64,6 +70,11 @@ internal fun StagedAttachments(
     onRemove: (Uri) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // The picture being looked at full screen, if any. Tapping a thumbnail opens it, so a staged
+    // picture can be checked at full size before it is sent.
+    var preview by remember { mutableStateOf<Uri?>(null) }
+    val contentResolver = LocalContext.current.contentResolver
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -72,13 +83,25 @@ internal fun StagedAttachments(
     ) {
         attachments.forEach { uri ->
             key(uri) {
-                if (uri.looksLikeImage()) {
-                    StagedImageThumbnail(uri = uri, onRemove = { onRemove(uri) })
+                val isPicture = remember(uri) { uri.looksLikeImage(contentResolver) }
+                if (isPicture) {
+                    StagedImageThumbnail(
+                        uri = uri,
+                        onOpen = { preview = uri },
+                        onRemove = { onRemove(uri) },
+                    )
                 } else {
                     StagedAttachmentChip(uri = uri, onRemove = { onRemove(uri) })
                 }
             }
         }
+    }
+
+    preview?.let { uri ->
+        ImagePreviewDialog(
+            attachment = Attachment(type = "image", imageUrl = uri.toString()),
+            onDismiss = { preview = null },
+        )
     }
 }
 
@@ -86,6 +109,7 @@ internal fun StagedAttachments(
 @Composable
 private fun StagedImageThumbnail(
     uri: Uri,
+    onOpen: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val image = rememberUriImage(uri = uri, maxSizePx = THUMBNAIL_PX)
@@ -96,7 +120,8 @@ private fun StagedImageThumbnail(
             modifier = Modifier
                 .size(THUMBNAIL_SIZE)
                 .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(onClick = onOpen),
             contentAlignment = Alignment.Center,
         ) {
             if (image != null) {

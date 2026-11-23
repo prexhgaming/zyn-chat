@@ -16,6 +16,8 @@
 
 package com.zyn.chat.app.ui.components
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -25,10 +27,13 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,15 +46,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.zyn.chat.app.R
 import com.zyn.chat.app.presentation.chat.ChatUiState
 import com.zyn.chat.app.ui.chat.ImagePreviewDialog
 import com.zyn.chat.app.ui.chat.imageAttachmentsOf
+import com.zyn.chat.app.ui.chat.rememberUriImage
 import com.zyn.chat.app.ui.icons.ZynIcons
 import com.zyn.chat.app.ui.theme.BubbleShape
 import com.zyn.chat.compose.ui.component.AIMessageParts
@@ -141,9 +150,11 @@ private fun AssistantMessage(
         )
 
         if (message.content.isNotBlank()) {
+            // The provider already paces the text, so it is drawn as it arrives. Animating it a
+            // second time made the screen fall behind a fast model by many words.
             StreamingText(
                 text = message.content,
-                animate = message.isGenerating,
+                animate = false,
             )
         }
     }
@@ -203,9 +214,8 @@ private fun BubbleMessage(
 /**
  * Everything attached to a message.
  *
- * Renders nothing when there is nothing attached. When the message carries at least one picture the
- * whole group becomes tappable and opens that picture, which is the interaction people expect from a
- * photo in a conversation.
+ * Renders nothing when there is nothing attached. Pictures staged on this device are drawn from
+ * their own URI and open full screen when tapped; everything else goes through the Stream renderer.
  */
 @Composable
 private fun MessageAttachments(
@@ -217,29 +227,98 @@ private fun MessageAttachments(
     if (message.attachments.isEmpty()) return
 
     val pictures = imageAttachmentsOf(message)
+    // Pictures staged on this device carry a content:// URI, which the message renders itself. The
+    // Stream renderer is kept for everything else, such as a picture the provider sends back.
+    val localPictures = pictures.filter { attachment -> attachment.imageUrl.isLocalPictureUri() }
+    val rest = message.attachments.filterNot { attachment -> attachment in localPictures }
+    val remotePicture = pictures.firstOrNull { attachment -> attachment !in localPictures }
 
-    ChatTheme {
-        Box(
-            modifier = modifier.then(
-                if (pictures.isEmpty()) {
-                    Modifier
-                } else {
-                    Modifier.clickable { onImageClick(pictures.first()) }
-                },
-            ),
-        ) {
-            MediaAttachmentContent(
-                state = AttachmentState(
-                    message = Message(
-                        text = message.content,
-                        attachments = message.attachments,
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        localPictures.forEach { attachment ->
+            LocalPicture(attachment = attachment, onImageClick = onImageClick)
+        }
+
+        if (rest.isNotEmpty()) {
+            ChatTheme {
+                Box(
+                    modifier = Modifier.then(
+                        if (remotePicture != null) {
+                            Modifier.clickable { onImageClick(remotePicture) }
+                        } else {
+                            Modifier
+                        },
                     ),
-                    isMine = isMine,
-                ),
+                ) {
+                    MediaAttachmentContent(
+                        state = AttachmentState(
+                            message = Message(
+                                text = message.content,
+                                attachments = rest,
+                            ),
+                            isMine = isMine,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A picture that lives on this device, drawn from its own URI.
+ *
+ * The Stream attachment renderer expects an upload to describe the file; a staged picture only has
+ * its content URI, so it is decoded here and drawn at the message's width.
+ *
+ * @param attachment Picture to draw.
+ * @param onImageClick Invoked when the picture is tapped.
+ */
+@Composable
+private fun LocalPicture(
+    attachment: Attachment,
+    onImageClick: (Attachment) -> Unit,
+) {
+    val uri = attachment.imageUrl?.toUri() ?: return
+    val image = rememberUriImage(uri = uri, maxSizePx = MESSAGE_PICTURE_PX)
+    val shape = RoundedCornerShape(16.dp)
+
+    if (image != null) {
+        Image(
+            bitmap = image,
+            contentDescription = attachment.name ?: stringResource(R.string.zyn_message_image),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = MESSAGE_PICTURE_MAX_HEIGHT)
+                .clip(shape)
+                .clickable { onImageClick(attachment) },
+        )
+    } else {
+        // The URI could not be decoded: keep a calm placeholder instead of an empty gap.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(MESSAGE_PICTURE_MAX_HEIGHT)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = ZynIcons.Image,
+                contentDescription = stringResource(R.string.zyn_message_image),
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
+
+/** Whether an attachment's URL points at a file this app can read directly. */
+private fun String?.isLocalPictureUri(): Boolean =
+    this?.let { url -> url.startsWith("content://") || url.startsWith("file://") } == true
 
 @Composable
 private fun MessageBubble(
@@ -262,6 +341,12 @@ private fun MessageBubble(
 
 /** Share of the screen width a bubble may take up. */
 private const val MAX_BUBBLE_FRACTION = 0.82f
+
+/** Longest side a picture in a message is decoded at. */
+private const val MESSAGE_PICTURE_PX = 1_024
+
+/** Tallest a picture in a message may be drawn. */
+private val MESSAGE_PICTURE_MAX_HEIGHT = 280.dp
 
 /**
  * Error indicator for failed messages.

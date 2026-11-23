@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import com.zyn.chat.app.R
-import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -46,28 +45,21 @@ import kotlinx.coroutines.launch
  * `res/xml/zyn_file_paths.xml`), with the write permission travelling on the intent. The file lives
  * in the app's cache, so nothing reaches shared storage and no storage permission is involved.
  *
- * The same image-capability rules as the photo picker apply, and they are applied at the right
- * moment: a model known to be unable to read pictures refuses the capture *before* the camera opens,
- * while a model whose ability is unknown warns once there is a picture to decide about.
+ * The same picture is staged like any picked one: whether the selected model can read it is the
+ * provider's business, so a refusal comes back as an answer in the chat rather than a warning here.
  *
- * @param decision What the selected model does with pictures.
- * @param modelLabel Name of the selected model, for the explanation when it cannot read them.
- * @param snackbarHostState Host that carries the explanations.
+ * @param snackbarHostState Host that carries the device-level explanations, such as no camera app.
  * @param onCapture Invoked with the picture once the camera app has written it.
  * @return Starts the camera, or explains why it could not be started.
  */
 @Composable
 internal fun rememberCameraCapture(
-    decision: ImageAttachmentDecision,
-    modelLabel: String,
     snackbarHostState: SnackbarHostState,
     onCapture: (Uri) -> Unit,
 ): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val blockedMessage = stringResource(R.string.zyn_composer_image_blocked, modelLabel)
-    val unknownMessage = stringResource(R.string.zyn_composer_image_unknown)
     val unavailableMessage = stringResource(R.string.zyn_composer_camera_unavailable)
     val failedMessage = stringResource(R.string.zyn_composer_camera_failed)
 
@@ -83,9 +75,6 @@ internal fun rememberCameraCapture(
         if (capture == null) return@rememberLauncherForActivityResult
 
         if (result.resultCode == Activity.RESULT_OK) {
-            if (decision == ImageAttachmentDecision.Warn) {
-                scope.launch { snackbarHostState.showSnackbar(unknownMessage) }
-            }
             onCapture(capture)
         } else {
             // Backed out of the camera: the placeholder holds nothing worth keeping.
@@ -94,24 +83,19 @@ internal fun rememberCameraCapture(
     }
 
     return {
-        if (decision == ImageAttachmentDecision.Blocked) {
-            // Explain instead of opening a camera whose picture could not be sent.
-            scope.launch { snackbarHostState.showSnackbar(blockedMessage) }
+        val output = createCaptureOutput(context)
+
+        if (output == null) {
+            scope.launch { snackbarHostState.showSnackbar(failedMessage) }
         } else {
-            val output = createCaptureOutput(context)
+            pendingCapture = output
+            // A device without a camera app fails here, synchronously, before anything is taken.
+            val started = runCatching { launcher.launch(captureIntentFor(output)) }.isSuccess
 
-            if (output == null) {
-                scope.launch { snackbarHostState.showSnackbar(failedMessage) }
-            } else {
-                pendingCapture = output
-                // A device without a camera app fails here, synchronously, before anything is taken.
-                val started = runCatching { launcher.launch(captureIntentFor(output)) }.isSuccess
-
-                if (!started) {
-                    pendingCapture = null
-                    runCatching { context.contentResolver.delete(output, null, null) }
-                    scope.launch { snackbarHostState.showSnackbar(unavailableMessage) }
-                }
+            if (!started) {
+                pendingCapture = null
+                runCatching { context.contentResolver.delete(output, null, null) }
+                scope.launch { snackbarHostState.showSnackbar(unavailableMessage) }
             }
         }
     }

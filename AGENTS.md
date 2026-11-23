@@ -81,19 +81,33 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
   `architecture.input_modalities` / `modality`, a top-level `input_modalities`, and a `capabilities`
   object such as `{"image_input":{"supported":true}}`, where an explicit `false` is an answer and a
   missing key is silence. The same slug can be vision on one provider and text-only on another, so a
-  silent provider leaves the field `null`: a known text-only model is blocked with an explanation, an
-  unknown one is sent with a warning. Never collapse unknown into false.
+  silent provider leaves the field `null`. Abilities **never gate attaching or sending**: the app
+  stages every picture and lets the provider answer, and a refusal comes back as a failed question
+  in the chat. Never collapse unknown into false.
 - Pictures reach the provider as `image_url` content parts carrying a base64 `data:` URL: staged URIs
   are read, shrunk and encoded in `data/chat/ImagePayload.kt`, carried by `ChatTurn.images`, and
-  written by `OpenAiProtocol` (turns without pictures still go as a plain string). Only a model the
-  provider called text-only is skipped; one that ever **refused** a picture is remembered per
-  provider+model in `data/providers/ImageAbilityStore.kt` and folded into the model by
-  `ProviderRepository` as a fallback only — a provider's own report always wins.
+  written by `OpenAiProtocol` (turns without pictures still go as a plain string). A staged URI that
+  cannot be decoded is skipped rather than failing the send, so the request goes out with the rest.
+  Every readable picture is sent; a provider that **refuses** one is remembered per provider+model in
+  `data/providers/ImageAbilityStore.kt` so the picker can label it, but that memory never blocks a
+  send — a provider's own report always wins.
 - Known gap: `ChatViewModel.retryMessage` resends **text only**, because it builds a fresh
   `MessageData` without the failed message's attachments.
-- Picture previews sit **inside** the composer's own field, not above it; `ImageThumbnails.kt`
-  decodes off the main thread because there is no image-loading library on the classpath. A picture
-  in a message opens `ui/chat/ImagePreview.kt`, and assistant attachments are rendered as well.
+- Streaming is drawn, not re-animated: `ChatMessageItem` renders the assistant answer as it arrives
+  (`StreamingText(animate = false)`), `ChatViewModel` coalesces transcript updates to one per
+  `STREAM_FRAME_MS` (32ms) instead of one per token, and `StreamingText` jumps to the full text when
+  the backlog is large. The chat's auto-scroll is keyed on the newest message id, so streaming does
+  not restart it on every token.
+- A message may be **pictures with no text**: both `ChatViewModel.sendMessage` and the composer's
+  `canSend` treat a staged attachment as something to send, and `toChatMessage` keeps an
+  attachment-only message that has no text and no parts.
+- Picture previews sit **inside** the composer's own field, not above it, and tapping a thumbnail
+  opens the full-screen viewer (`ui/chat/ImagePreview.kt`). `ImageThumbnails.kt` decodes off the main
+  thread because there is no image-loading library on the classpath. A picture in a message is drawn
+  from its own `content://` URI by `ChatMessageItem` (`LocalPicture`); the Stream renderer is kept
+  for remote pictures and non-image files.
+- Attaching a picture shows **no warning toast**: capability copy was removed on purpose, so only
+  device-level failures (no camera app, camera file could not be prepared) still use the snackbar.
 - Opening a chat passes **both** ids: `selectedConversationId` (storage) and `selectedChannelId`
   (Stream). Only a real channel id may reach Stream — see `isChannelId` in
   `domain/chat/ConversationRepository.kt`; handing Stream a stored uuid is what crashed on resume.

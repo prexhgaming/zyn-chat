@@ -64,12 +64,8 @@ class ModelCapabilitiesTest {
         val textOnlyLooking = ModelCatalog.enrich("openai", "o1-mini")
 
         // Whether pictures work is the provider's answer to give, so an unanswered question stays
-        // unanswered: the composer warns and the request is still tried.
+        // unanswered and the request is tried.
         assertNull(textOnlyLooking.capabilities.imageSupport)
-        assertEquals(
-            ImageAttachmentDecision.Warn,
-            textOnlyLooking.capabilities.imageAttachmentDecision(),
-        )
     }
 
     @Test
@@ -155,26 +151,7 @@ class ModelCapabilitiesTest {
     }
 
     @Test
-    fun `a model known to take pictures attaches them without a word`() {
-        assertEquals(
-            ImageAttachmentDecision.Allowed,
-            ModelCapabilities.textAndImages().imageAttachmentDecision(),
-        )
-    }
-
-    @Test
-    fun `a text-only model is blocked from pictures rather than merely warned`() {
-        assertEquals(
-            ImageAttachmentDecision.Blocked,
-            ModelCapabilities.textOnly().imageAttachmentDecision(),
-        )
-    }
-
-    @Test
-    fun `an unknown model is allowed with a warning, never blocked on a guess`() {
-        assertEquals(
-            ImageAttachmentDecision.Warn,
-            ModelCapabilities.UNKNOWN.imageAttachmentDecision(),
-        )
+    fun `an unknown model is not treated as text-only`() {
+        assertNull(ModelCapabilities.UNKNOWN.imageSupport)
     }
 }

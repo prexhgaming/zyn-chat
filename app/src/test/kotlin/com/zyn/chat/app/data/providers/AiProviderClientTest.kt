@@ -82,7 +82,6 @@ class AiProviderClientTest {
         val model = model("""{"id":"o1-mini"}""")
 
         assertNull(model.capabilities.imageSupport)
-        assertEquals(ImageAttachmentDecision.Warn, model.capabilities.imageAttachmentDecision())
     }
 
     @Test

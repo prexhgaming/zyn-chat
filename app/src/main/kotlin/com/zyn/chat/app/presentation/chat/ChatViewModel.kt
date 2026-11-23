@@ -18,16 +18,16 @@ package com.zyn.chat.app.presentation.chat
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyn.chat.compose.parts.AIMessagePart
+import com.zyn.chat.app.R
 import com.zyn.chat.app.data.chat.ImagePayload
-import com.zyn.chat.app.data.providers.AiModel
 import com.zyn.chat.app.data.providers.ApiKeyStore
-import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import com.zyn.chat.app.data.providers.ProviderException
 import com.zyn.chat.app.data.providers.ProviderRepository
-import com.zyn.chat.app.data.providers.imageAttachmentDecision
+import com.zyn.chat.app.data.providers.refusedPictures
 import com.zyn.chat.app.data.repository.ChatAiRepository
 import com.zyn.chat.app.domain.chat.ChatChunk
 import com.zyn.chat.app.domain.chat.ChatEngine
@@ -242,7 +242,7 @@ internal class ChatViewModel(
      */
     fun sendMessage(data: MessageData) {
         val text = data.text.trim()
-        if (text.isEmpty() || _uiState.value.assistantState.isBusy()) {
+        if ((text.isEmpty() && data.attachments.isEmpty()) || _uiState.value.assistantState.isBusy()) {
             return
         }
         // Busy from the tap itself, so a second tap during the IO hop below is ignored.
@@ -391,57 +391,70 @@ internal class ChatViewModel(
     /**
      * Pictures to send with a question.
      *
-     * They are read only when the model's own provider said the model takes pictures. A model known to
-     * refuse them gets the text alone, and one whose abilities the provider never stated is tried
-     * rather than blocked — the app cannot know better than the provider, and guessing either way from
-     * the model's name is exactly what this avoids.
+     * Every staged picture is sent: whether a deployment can read pictures is the provider's answer
+     * to give, so the app does not pre-empt it. A provider that refuses them says so, and that
+     * failure is reported in the conversation like any other.
      *
      * @param attachments URIs staged with the question, which may include documents.
-     * @param model Model the question will be asked of.
      */
-    private suspend fun imagesFor(attachments: List<Uri>, model: AiModel): List<ChatImage> =
-        when (model.capabilities.imageAttachmentDecision()) {
-            ImageAttachmentDecision.Blocked -> {
-                logger.d { "The model is text-only; asking without the staged pictures" }
-                emptyList()
-            }
-            else -> ImagePayload.load(context = appContext, uris = attachments)
-        }
+    private suspend fun imagesFor(attachments: List<Uri>): List<ChatImage> =
+        ImagePayload.load(context = appContext, uris = attachments)
 
-    /** Staged URIs as attachments the transcript can draw, without copying any file. */
+    /**
+     * Staged URIs as attachments the transcript can draw, without copying any file.
+     *
+     * The picture itself is the attachment's `imageUrl`, so the chat can decode the same local URI
+     * the composer previewed. The Stream helper is not used here: it describes files for upload,
+     * which is not what a message rendered on this screen needs.
+     */
     private suspend fun stagedAttachments(attachments: List<Uri>): List<Attachment> =
         withContext(Dispatchers.IO) {
-            attachmentStorageHelper.toAttachments(attachmentStorageHelper.resolveMetadata(attachments))
+            attachments.map { uri ->
+                val mimeType = runCatching { appContext.contentResolver.getType(uri) }.getOrNull()
+                val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
+
+                if (mimeType?.startsWith("image/") == true) {
+                    Attachment(type = "image", imageUrl = uri.toString(), name = name, mimeType = mimeType)
+                } else {
+                    Attachment(type = "file", assetUrl = uri.toString(), name = name, mimeType = mimeType)
+                }
+            }
         }
 
     /**
-     * Streams an answer from the person's own provider.
+     * Puts the answer being generated into the transcript.
      *
-     * The history is built from this conversation alone, so no other chat can influence the answer,
-     * and the request carries its own key: nothing is sent anywhere except the provider the person
-     * configured. Cancelling the collection (stop, or leaving the chat) cancels the HTTP call.
-     *
-     * @param text What the person just asked.
-     * @param attachments URIs staged with the question, sent when the model takes pictures.
-     * @param selection Provider and model to ask.
+     * @param answerId Id of the answer, which stays the same while it grows.
+     * @param text The answer so far.
+     * @param isGenerating Whether the provider is still sending.
      */
-    private suspend fun answerWithProvider(
-        text: String,
-        attachments: List<Uri>,
-        selection: ProviderSelection,
-    ) {
-        val answerId = UUID.randomUUID().toString()
-        val questionId = UUID.randomUUID().toString()
-        val conversationId = cid.value ?: localConversationId
+    private fun showAnswer(answerId: String, text: String, isGenerating: Boolean) {
+        val message = localMessage(
+            role = ChatUiState.Message.Role.Assistant,
+            content = text,
+            id = answerId,
+            isGenerating = isGenerating,
+        )
+        localMessages.update { messages -> listOf(message) + messages.filterNot { it.id == answerId } }
+    }
 
-        val images = imagesFor(attachments = attachments, model = selection.model)
-        val staged = if (attachments.isEmpty()) emptyList() else stagedAttachments(attachments)
-
-        // Built before the question is added, so it appears in the request exactly once. The stored
-        // turns of this conversation win; the screen's messages are the fallback for conversations
-        // whose history still comes from Stream.
+    /**
+     * The conversation as the provider should see it, ending with the new question.
+     *
+     * The stored turns of this conversation win; the screen's messages are the fallback for
+     * conversations whose history still comes from Stream.
+     *
+     * @param conversationId Conversation being answered.
+     * @param question What the person just asked.
+     * @param images Pictures to send with the question.
+     */
+    private suspend fun providerHistory(
+        conversationId: String,
+        question: String,
+        images: List<ChatImage>,
+    ): List<ChatTurn> {
         val storedTurns = conversations.history(conversationId)
-        val history = (if (storedTurns.isNotEmpty()) {
+        val turns = if (storedTurns.isNotEmpty()) {
             storedTurns
         } else {
             _uiState.value.messages.reversed().map { message ->
@@ -453,7 +466,63 @@ internal class ChatViewModel(
                     content = message.content,
                 )
             }
-        }) + ChatTurn(role = ChatRole.User, content = text, images = images)
+        }
+        return turns + ChatTurn(role = ChatRole.User, content = question, images = images)
+    }
+
+    /**
+     * Marks the question as failed and drops any partial answer.
+     *
+     * The failure belongs to the question, not to a reply: the question carries the reason, which is
+     * what the retry and edit actions hang off, and a retry starts clean.
+     *
+     * @param questionId The question that failed.
+     * @param answerId The partial answer to drop.
+     * @param errorReason What to show on the question.
+     */
+    private fun markQuestionFailed(questionId: String, answerId: String, errorReason: String) {
+        localMessages.update { messages ->
+            messages
+                .filterNot { it.id == answerId }
+                .map { message ->
+                    if (message.id == questionId) {
+                        message.copy(isFailed = true, errorReason = errorReason)
+                    } else {
+                        message
+                    }
+                }
+        }
+    }
+
+    /**
+     * Streams an answer from the person's own provider.
+     *
+     * The history is built from this conversation alone, so no other chat can influence the answer,
+     * and the request carries its own key: nothing is sent anywhere except the provider the person
+     * configured. Cancelling the collection (stop, or leaving the chat) cancels the HTTP call.
+     *
+     * @param text What the person just asked.
+     * @param attachments URIs staged with the question, sent with it as pictures.
+     * @param selection Provider and model to ask.
+     */
+    private suspend fun answerWithProvider(
+        text: String,
+        attachments: List<Uri>,
+        selection: ProviderSelection,
+    ) {
+        val answerId = UUID.randomUUID().toString()
+        val questionId = UUID.randomUUID().toString()
+        val conversationId = cid.value ?: localConversationId
+
+        val images = imagesFor(attachments = attachments)
+        val staged = if (attachments.isEmpty()) emptyList() else stagedAttachments(attachments)
+
+        // Built before the question is added, so it appears in the request exactly once.
+        val history = providerHistory(
+            conversationId = conversationId,
+            question = text,
+            images = images,
+        )
 
         localMessages.update {
             listOf(
@@ -467,62 +536,126 @@ internal class ChatViewModel(
         }
 
         val answer = StringBuilder()
+        val finalState = streamProviderAnswer(
+            selection = selection,
+            conversationId = conversationId,
+            history = history,
+            questionId = questionId,
+            answerId = answerId,
+            askedWithPictures = images.isNotEmpty(),
+            answer = answer,
+        )
+
+        recordExchange(
+            conversationId = conversationId,
+            question = text,
+            answer = answer.toString(),
+            selection = selection,
+            finalState = finalState,
+        )
+    }
+
+    /**
+     * Collects the provider's answer into [answer], publishing it as it grows.
+     *
+     * Text is published at most once per frame instead of once per token: a fast provider used to
+     * rebuild the message list hundreds of times a second, and the UI could not draw that fast
+     * anyway. Slow streams still publish every chunk.
+     *
+     * @param selection Provider and model to ask.
+     * @param conversationId Conversation being answered.
+     * @param history The conversation so far, ending with the new question.
+     * @param questionId The question, marked failed if the provider fails.
+     * @param answerId Id the growing answer is published under.
+     * @param askedWithPictures Whether the request carried pictures.
+     * @param answer Collects the answer text.
+     * @return How the answer ended.
+     */
+    private suspend fun streamProviderAnswer(
+        selection: ProviderSelection,
+        conversationId: String,
+        history: List<ChatTurn>,
+        questionId: String,
+        answerId: String,
+        askedWithPictures: Boolean,
+        answer: StringBuilder,
+    ): ChatUiState.AssistantState {
         var finalState: ChatUiState.AssistantState = ChatUiState.AssistantState.Idle
+        var generating = false
+        var lastPublishedAt = 0L
 
         try {
             providerAnswers.stream(selection, conversationId, history).collect { chunk ->
                 if (chunk is ChatChunk.Text) {
                     answer.append(chunk.delta)
-                    val message = localMessage(
-                        ChatUiState.Message.Role.Assistant,
-                        answer.toString(),
-                        answerId,
-                        isGenerating = true,
-                    )
-                    localMessages.update { messages ->
-                        listOf(message) + messages.filterNot { it.id == answerId }
+                    if (!generating) {
+                        generating = true
+                        _uiState.update { it.copy(assistantState = ChatUiState.AssistantState.Generating) }
                     }
-                    _uiState.update { it.copy(assistantState = ChatUiState.AssistantState.Generating) }
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastPublishedAt >= STREAM_FRAME_MS) {
+                        lastPublishedAt = now
+                        showAnswer(answerId = answerId, text = answer.toString(), isGenerating = true)
+                    }
                 }
             }
         } catch (e: ProviderException) {
             logger.e { "Provider answer failed: ${e.reason}" }
             finalState = ChatUiState.AssistantState.Error
-            // The failure belongs to the question, not to a reply: the question is marked failed and
-            // carries the reason, which is what the retry and edit actions hang off. Any partial
-            // answer is dropped, so a retry starts clean instead of continuing a broken reply.
-            localMessages.update { messages ->
-                messages
-                    .filterNot { it.id == answerId }
-                    .map { message ->
-                        if (message.id == questionId) {
-                            message.copy(
-                                isFailed = true,
-                                errorReason = providerAnswers.failureText(e),
-                            )
-                        } else {
-                            message
-                        }
-                    }
+            // A provider that rejected the pictures says so in its own words; that is more useful in
+            // the conversation than the generic failure copy.
+            val errorReason = if (askedWithPictures && e.refusedPictures()) {
+                appContext.getString(R.string.zyn_provider_error_images_refused)
+            } else {
+                providerAnswers.failureText(e)
             }
+            markQuestionFailed(
+                questionId = questionId,
+                answerId = answerId,
+                errorReason = errorReason,
+            )
         } finally {
-            localMessages.update { messages ->
-                messages.map { if (it.id == answerId) it.copy(isGenerating = false) else it }
+            if (finalState != ChatUiState.AssistantState.Error && answer.isNotEmpty()) {
+                showAnswer(answerId = answerId, text = answer.toString(), isGenerating = false)
+            } else {
+                localMessages.update { messages ->
+                    messages.map { if (it.id == answerId) it.copy(isGenerating = false) else it }
+                }
             }
             _uiState.update { it.copy(assistantState = finalState) }
         }
 
-        if (answer.isNotBlank() && finalState != ChatUiState.AssistantState.Error) {
-            // Stored per conversation, and this is also where the conversation gets its name: a short
-            // title derived on the device rather than the first message repeated.
-            conversations.record(
-                conversationId = conversationId,
-                question = text,
-                answer = answer.toString(),
-                providerId = selection.provider.id,
-                modelId = selection.model.id,
-            )
-        }
+        return finalState
+    }
+
+    /**
+     * Stores a finished exchange, unless it failed or produced nothing.
+     *
+     * Storing is also where the conversation gets its name: a short title derived on the device
+     * rather than the first message repeated.
+     *
+     * @param conversationId Conversation the exchange belongs to.
+     * @param question What was asked.
+     * @param answer What came back.
+     * @param selection Provider and model that answered.
+     * @param finalState How the answer ended.
+     */
+    private suspend fun recordExchange(
+        conversationId: String,
+        question: String,
+        answer: String,
+        selection: ProviderSelection,
+        finalState: ChatUiState.AssistantState,
+    ) {
+        if (answer.isBlank() || finalState == ChatUiState.AssistantState.Error) return
+
+        conversations.record(
+            conversationId = conversationId,
+            question = question,
+            answer = answer,
+            providerId = selection.provider.id,
+            modelId = selection.model.id,
+        )
     }
 
     /** Answers [question] with the model on the device. The question and answer stay on this screen. */
@@ -682,7 +815,7 @@ internal class ChatViewModel(
 private fun StreamMessage.toChatMessage(currentUserId: String): ChatUiState.Message? {
     // Stream lifts `name` out of extraData, and a tool call's step needs it back.
     val parts = AIMessagePart.parts(attachments.map { it.type.orEmpty() to it.extraData + ("name" to it.name) })
-    if (text.isBlank() && parts.isEmpty()) {
+    if (text.isBlank() && parts.isEmpty() && attachments.isEmpty()) {
         return null
     }
 
@@ -723,6 +856,9 @@ private fun localMessage(
     parts = emptyList(),
     isGenerating = isGenerating,
 )
+
+/** Shortest gap between two transcript updates while an answer streams, in milliseconds. */
+private const val STREAM_FRAME_MS = 32L
 
 private const val ON_DEVICE_INSTRUCTIONS =
     "You are a helpful assistant answering on the person's device, without a connection to the server. " +

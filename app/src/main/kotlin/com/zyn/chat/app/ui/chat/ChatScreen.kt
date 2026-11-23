@@ -63,7 +63,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.R
-import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import com.zyn.chat.app.di.ChatViewModelFactory
 import com.zyn.chat.app.presentation.chat.ChatUiState
 import com.zyn.chat.app.presentation.chat.ChatUiState.Action
@@ -92,7 +91,6 @@ fun ChatScreen(
     onChatDeleted: () -> Unit = {},
     modelName: String? = null,
     onModelClick: () -> Unit = {},
-    imageAttachmentDecision: ImageAttachmentDecision = ImageAttachmentDecision.Warn,
 ) {
     val appContext = LocalContext.current.applicationContext
     val chatViewModel = viewModel<ChatViewModel>(
@@ -141,10 +139,11 @@ fun ChatScreen(
         chatViewModel.discardMessage(message.id)
     }
 
-    // Scroll to bottom when the user sends a new message
-    LaunchedEffect(state) {
+    // Scroll to bottom when a new message is added. Keyed on the newest message rather than the
+    // whole state, so streaming text does not restart the scroll on every token.
+    LaunchedEffect(state.messages.firstOrNull()?.id) {
         if (state.getCurrentUserMessage() != null) {
-            delay(100) // Small delay to ensure layout is complete
+            delay(50) // Small delay to ensure layout is complete
             if (listState.layoutInfo.totalItemsCount > 0) {
                 // In reverse layout, scroll to item 0 to show the bottom (newest messages)
                 listState.animateScrollToItem(
@@ -213,7 +212,6 @@ fun ChatScreen(
                     isGenerating = isAssistantBusy,
                     modelName = modelName,
                     onModelClick = onModelClick,
-                    imageDecision = imageAttachmentDecision,
                     draftText = editDraft,
                     onDraftConsumed = { editDraft = null },
                 )

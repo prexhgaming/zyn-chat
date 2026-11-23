@@ -106,32 +106,6 @@ public data class ModelCapabilities(
 }
 
 /**
- * What the app does when the person tries to attach an image to the selected model.
- *
- * The three cases are kept distinct on purpose: a model known to take images attaches silently, a
- * model known to refuse them is never sent one and gets an explanation, and a model whose abilities
- * are unknown is allowed through with a warning — refusing on a guess would block a model that
- * probably works, and staying silent would let the person send something that quietly fails.
- */
-public enum class ImageAttachmentDecision {
-    /** The model is known to accept images. */
-    Allowed,
-
-    /** The model is known to be unable to take images: do not attach, explain instead. */
-    Blocked,
-
-    /** Nothing is established: allow it, but say so. */
-    Warn,
-}
-
-/** The decision for this capability record. */
-public fun ModelCapabilities.imageAttachmentDecision(): ImageAttachmentDecision = when (imageSupport) {
-    true -> ImageAttachmentDecision.Allowed
-    false -> ImageAttachmentDecision.Blocked
-    null -> ImageAttachmentDecision.Warn
-}
-
-/**
  * Fills each field this record does not know from [fallback].
  *
  * Known values always win, which is what keeps a provider's own report ahead of local knowledge no
