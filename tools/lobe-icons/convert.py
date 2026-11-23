@@ -148,7 +148,6 @@ HEADER = """/*
 
 TAG_RE = re.compile(r"<([a-zA-Z]+)")
 ATTR_RE = re.compile(r"([a-zA-Z-]+)=\"([^\"]*)\"")
-PATH_RE = re.compile(r"<path\b([^>]*?)/?>")
 # Elements a VectorDrawable cannot express as-is. None of the selected icons use them; if one ever
 # does, failing here is better than shipping a silently wrong mark.
 UNSUPPORTED = {
@@ -213,15 +212,55 @@ def to_colour(value: str) -> str | None:
     return None
 
 
-def path_xml(attrs: dict[str, str]) -> str:
-    """One `<path>`, or an empty string if it cannot be expressed as a VectorDrawable."""
+ELEMENT_RE = re.compile(
+    r"<(/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z-]+=\"[^\"]*\")*)\s*(/?)>"
+)
+
+
+def style_declarations(value: str) -> dict[str, str]:
+    """The `name:value` declarations of a `style` attribute, e.g. `fill-rule:evenodd`."""
+    declarations: dict[str, str] = {}
+    for part in value.split(";"):
+        name, _, declaration = part.partition(":")
+        name, declaration = name.strip().lower(), declaration.strip()
+        if name and declaration:
+            declarations[name] = declaration
+    return declarations
+
+
+def inherited_attrs(stack: list[tuple[str, dict[str, str]]]) -> dict[str, str]:
+    """Merges the attributes of every open element, the nearest ancestor winning."""
+    merged: dict[str, str] = {}
+    for _, attrs in stack:
+        merged.update(attrs)
+    return merged
+
+
+def path_xml(attrs: dict[str, str], inherited: dict[str, str]) -> str:
+    """One `<path>`, or an empty string if it cannot be expressed as a VectorDrawable.
+
+    `fill-rule` inherits down the SVG tree, so a rule declared on `<svg>` or a `<g>` governs every
+    path below it — DeepSeek's whale, for one, is only a whale while the root's
+    `fill-rule="evenodd"` is honoured. The path's own attribute wins, then its `style`
+    declarations, then the nearest ancestor's. `fill` stays path-local on purpose: the plain
+    LobeHub icons paint with `currentColor`, and the app's marks tint with the theme, so an
+    inherited concrete colour is deliberately not carried down.
+    """
     data = attrs.get("d")
     if not data:
         return ""
-    fill = to_colour(attrs.get("fill", "currentColor"))
+    if attrs.get("fill", "currentColor").strip().lower() == "none":
+        raise ValueError('path is stroked (fill="none"), which cannot be kept')
+    style = style_declarations(attrs.get("style", ""))
+    fill_rule = (
+        style.get("fill-rule")
+        or attrs.get("fill-rule")
+        or inherited.get("fill-rule", "")
+    )
     attributes = []
-    if attrs.get("fill-rule") == "evenodd":
+    if fill_rule.strip().lower() == "evenodd":
         attributes.append('android:fillType="evenOdd"')
+    fill = to_colour(attrs.get("fill", "currentColor"))
     if fill:
         attributes.append(f'android:fillColor="{fill}"')
     else:
@@ -232,15 +271,34 @@ def path_xml(attrs: dict[str, str]) -> str:
 
 
 def convert(drawable: str, slug: str) -> tuple[str, int]:
-    """Converts one fetched SVG into a VectorDrawable, returning it and the path count."""
+    """Converts one fetched SVG into a VectorDrawable, returning it and the path count.
+
+    Walks the document as a tag stream so `fill-rule` can inherit from `<svg>`/`<g>` ancestors,
+    which a flat `<path>` scan would miss. A `transform` anywhere fails the conversion: baking
+    one into path data is not worth the arc maths, and dropping it silently would ship a
+    distorted mark.
+    """
     unsupported = sorted({name for name in TAG_RE.findall(drawable) if name in UNSUPPORTED})
     if unsupported:
         raise ValueError(f"{slug}: uses {', '.join(unsupported)}")
 
-    paths = [
-        path_xml(dict(ATTR_RE.findall(attributes)))
-        for attributes in PATH_RE.findall(drawable)
-    ]
+    open_elements: list[tuple[str, dict[str, str]]] = []
+    paths = []
+    for match in ELEMENT_RE.finditer(drawable):
+        closing, name, raw_attrs, self_closing = match.groups()
+        attrs = dict(ATTR_RE.findall(raw_attrs))
+        if closing:
+            for index in range(len(open_elements) - 1, -1, -1):
+                if open_elements[index][0] == name:
+                    del open_elements[index:]
+                    break
+            continue
+        if "transform" in attrs:
+            raise ValueError(f"{slug}: <{name}> uses transform, which cannot be kept")
+        if name == "path":
+            paths.append(path_xml(attrs, inherited_attrs(open_elements)))
+        if not self_closing:
+            open_elements.append((name, attrs))
     paths = [path for path in paths if path]
     if not paths:
         raise ValueError(f"{slug}: no drawable paths")
