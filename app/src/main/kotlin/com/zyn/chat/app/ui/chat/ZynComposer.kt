@@ -71,9 +71,10 @@ import kotlinx.coroutines.launch
  * A rounded capsule that holds the message field on top and a control row below: the attachment
  * picker, the model pill, and the single trailing button that sends, dictates or stops.
  *
- * Photos and documents are staged as attachments on [MessageData], exactly like the Stream-derived
- * `ChatComposer` in the `com.zyn.chat.compose` package tree, so they flow through the existing send
- * path untouched.
+ * Photos, pictures taken with the camera and documents are staged as attachments on [MessageData],
+ * exactly like the Stream-derived `ChatComposer` in the `com.zyn.chat.compose` package tree, so they
+ * flow through the existing send path untouched. The attachment menu is a popup that opens above the
+ * composer and leaves it exactly where it was — see [AttachmentButton].
  *
  * Dictation is driven by [rememberSpeechInput] and runs continuously: every completed utterance is
  * appended to the field and listening restarts, until the person stops it with the same button or
@@ -142,6 +143,17 @@ fun ZynComposer(
     ) { uris ->
         messageData = messageData.copy(attachments = messageData.attachments + uris.toSet())
     }
+
+    // Pictures taken with the camera follow the same capability rules as picked ones; the capture
+    // itself lives in [rememberCameraCapture].
+    val startCamera = rememberCameraCapture(
+        decision = imageDecision,
+        modelLabel = modelLabel,
+        snackbarHostState = snackbarHostState,
+        onCapture = { capture ->
+            messageData = messageData.copy(attachments = messageData.attachments + capture)
+        },
+    )
 
     // Set when the person grants the microphone permission, so dictation starts without a second tap.
     var dictationRequested by remember { mutableStateOf(false) }
@@ -262,6 +274,7 @@ fun ZynComposer(
                 ) {
                     AttachmentButton(
                         enabled = !isGenerating,
+                        onCameraClick = startCamera,
                         onPhotosClick = {
                             if (imageDecision == ImageAttachmentDecision.Blocked) {
                                 // Explain instead of opening a picker that could not be used.

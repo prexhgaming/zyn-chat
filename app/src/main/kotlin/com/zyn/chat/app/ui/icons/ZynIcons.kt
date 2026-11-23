@@ -91,6 +91,36 @@ public object ZynIcons {
         lineTo(18.6f, 17.1f)
     }
 
+    /** Camera. Used by the "Camera" attachment action. */
+    public val Camera: ImageVector = outline("ZynCamera") {
+        moveTo(9.1f, 4.4f)
+        lineTo(7.8f, 6.6f)
+        lineTo(5.4f, 6.6f)
+        quadTo(3.4f, 6.6f, 3.4f, 8.6f)
+        lineTo(3.4f, 17f)
+        quadTo(3.4f, 19f, 5.4f, 19f)
+        lineTo(18.6f, 19f)
+        quadTo(20.6f, 19f, 20.6f, 17f)
+        lineTo(20.6f, 8.6f)
+        quadTo(20.6f, 6.6f, 18.6f, 6.6f)
+        lineTo(16.2f, 6.6f)
+        lineTo(14.9f, 4.4f)
+        close()
+        circle(12f, 12.7f, 3.5f)
+    }
+
+    /** Paperclip. Used by the "Files" attachment action. */
+    public val Clip: ImageVector = outline("ZynClip") {
+        moveTo(15.9f, 6.8f)
+        lineTo(15.9f, 16.4f)
+        quadTo(15.9f, 19.2f, 12f, 19.2f)
+        quadTo(8.1f, 19.2f, 8.1f, 16.4f)
+        lineTo(8.1f, 5.6f)
+        quadTo(8.1f, 3.6f, 10.05f, 3.6f)
+        quadTo(12f, 3.6f, 12f, 5.6f)
+        lineTo(12f, 15.4f)
+    }
+
     /** Chevron pointing down. Used by the model selector. */
     public val ChevronDown: ImageVector = outline("ZynChevronDown") {
         moveTo(7.2f, 10.2f)

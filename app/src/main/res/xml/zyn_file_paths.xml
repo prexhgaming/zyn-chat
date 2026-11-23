@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Paths the app's FileProvider is allowed to hand out.
+
+    Only the camera folder in the app's own cache is exposed: the camera app needs a writable URI
+    for the picture the composer is about to attach, and the cache is the right home for it — the
+    file is private to the app and no storage permission is involved.
+-->
+<paths>
+    <cache-path
+        name="zyn_camera"
+        path="camera/" />
+</paths>

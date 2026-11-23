@@ -42,3 +42,6 @@ internal val ComposerShape = RoundedCornerShape(26.dp)
 
 /** Radius for compact drawer rows. */
 internal val RowShape = RoundedCornerShape(10.dp)
+
+/** Radius for the attachment menu popup. */
+internal val AttachmentMenuShape = RoundedCornerShape(28.dp)

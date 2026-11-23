@@ -45,10 +45,23 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
   path; the converter resolves it (path attribute → `style` → nearest ancestor) into
   `android:fillType`. Dropping that inheritance silently fills cutouts solid — the DeepSeek whale
   bug — so keep ancestor attribute inheritance in the path conversion.
-- The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `SmartSendButton.kt`
-  + `ModelSelector.kt`. The Stream-derived `ChatComposer` and `SpeechToTextButton` (in the
-  `com.zyn.chat.compose` package tree) are intentionally left untouched (and unused by the app), so
-  their Paparazzi snapshots keep matching — don't restyle them to change the app's look.
+- The app owns its composer: `ui/chat/ZynComposer.kt` + `AttachmentMenu.kt` + `ComposerControls.kt` +
+  `SmartSendButton.kt` + `ModelSelector.kt`. The Stream-derived `ChatComposer` and
+  `SpeechToTextButton` (in the `com.zyn.chat.compose` package tree) are intentionally left untouched
+  (and unused by the app), so their Paparazzi snapshots keep matching — don't restyle them to change
+  the app's look.
+- The attachment menu is a **popup above the button**, never a panel that grows the composer
+  (`ui/chat/AttachmentMenu.kt`, placed by its own `PopupPositionProvider` — the composer sits at the
+  bottom, so a menu opening downwards would be clipped). Its rows are Camera / Photos / Files only:
+  the app has no plugin system and no reasoning level to switch, so ChatGPT's "Plugins" and
+  "Think harder" are deliberately absent. `PopupProperties(focusable = true)` is what lets a tap
+  outside and the back gesture close it.
+- Taking a picture is the one attachment path that writes a file: `ui/chat/CameraCapture.kt` puts the
+  shot in `cache/camera/` and hands the camera app a `FileProvider` URI — authority
+  `<applicationId>.fileprovider`, declared in `AndroidManifest.xml` with `res/xml/zyn_file_paths.xml`,
+  while the code builds that authority from `context.packageName`, so an `applicationIdSuffix` would
+  break it. No storage permission is involved, and the image-capability rules gate the camera exactly
+  like the photo picker: a model known to be text-only is refused before the camera opens.
 - Dictation is the app's own `ui/chat/speech/SpeechInput.kt` state machine (idle / listening /
   processing / error / unavailable). It chains recognition attempts, because the platform recognizer
   stops at the first end of speech, so dictation keeps running until the person stops it or types —

@@ -56,6 +56,9 @@
     <string name="zyn_composer_attach">Add attachment</string>
     <string name="zyn_composer_attach_photos">Photos</string>
     <string name="zyn_composer_attach_files">Files</string>
+    <string name="zyn_composer_attach_camera">Camera</string>
+    <string name="zyn_composer_camera_unavailable">No camera app is available on this device</string>
+    <string name="zyn_composer_camera_failed">Couldn\'t prepare a file for the picture</string>
     <string name="zyn_composer_send">Send</string>
     <string name="zyn_composer_stop">Stop</string>
     <string name="zyn_composer_remove_attachment">Remove attachment</string>
