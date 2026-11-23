@@ -47,7 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import com.zyn.chat.compose.ui.component.internal.SpeechRecognizerHelper
 import com.zyn.chat.compose.ui.component.internal.rememberSpeechRecognizerHelper
 import kotlinx.coroutines.delay

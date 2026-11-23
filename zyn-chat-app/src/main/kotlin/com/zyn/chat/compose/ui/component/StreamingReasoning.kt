@@ -63,7 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import com.zyn.chat.compose.parts.AIReasoningPart
 import com.zyn.chat.compose.ui.component.internal.ReasoningFoldState
 import com.zyn.chat.compose.ui.component.internal.ReasoningPanel

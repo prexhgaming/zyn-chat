@@ -50,7 +50,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

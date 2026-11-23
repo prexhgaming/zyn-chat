@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.paparazzi)
 }
 
 // --- Release signing -----------------------------------------------------------------------
@@ -83,18 +84,29 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    testOptions {
+        // Robolectric and Paparazzi need the merged resources inside JVM unit tests.
+        unitTests.isIncludeAndroidResources = true
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
+        // Carried over from the merged library modules.
+        freeCompilerArgs.add("-progressive")
     }
 }
 
-dependencies {
-    implementation(project(":zyn-chat-compose"))
-    implementation(project(":zyn-chat-ondevice"))
+// Paparazzi and Robolectric can't share a JVM: a Robolectric class that runs first breaks
+// Paparazzi's setup for every class after it.
+tasks.withType<Test>().configureEach {
+    forkEvery = 1
+}
 
+dependencies {
     implementation(libs.bundles.stream.chat)
 
     implementation(libs.kotlinx.coroutines.core)
@@ -109,7 +121,20 @@ dependencies {
 
     implementation(libs.bundles.retrofit)
 
+    // Merged from the former zyn-chat-compose module.
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.bundles.markdown.renderer)
+    // Merged from the former zyn-chat-ondevice module.
+    implementation(libs.mlkit.genai.prompt)
+
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.kotlinx.coroutines.test)
+    // The JVM implementation of org.json, which android.jar only stubs in unit tests.
+    testImplementation(libs.org.json)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

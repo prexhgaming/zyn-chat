@@ -43,7 +43,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import com.zyn.chat.compose.parts.AIToolCallPart
 import com.zyn.chat.compose.ui.component.internal.formatToolDuration
 import com.zyn.chat.compose.ui.component.internal.rememberDurationStrings

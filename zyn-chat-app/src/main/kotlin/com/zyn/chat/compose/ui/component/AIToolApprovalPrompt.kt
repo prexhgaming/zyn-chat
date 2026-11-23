@@ -44,7 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import com.zyn.chat.compose.parts.AIToolApproval
 import com.zyn.chat.compose.parts.AIToolCallPart
 import kotlinx.coroutines.CoroutineScope

@@ -24,14 +24,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "zyn-chat"
 
-// The two library modules are the reusable core. An app that consumes these components from
-// source (as an included build) gets only the libraries, so no second application module
-// shows up beside it in the IDE.
-include(
-    ":zyn-chat-compose",
-    ":zyn-chat-ondevice",
-)
-
-if (gradle.parent == null) {
-    include(":zyn-chat-app")
-}
+// A single module: the app, the compose component tree and the on-device model tree all live in
+// :zyn-chat-app, so there is exactly one build script and one test invocation.
+include(":zyn-chat-app")

@@ -71,8 +71,9 @@ import kotlinx.coroutines.launch
  * A rounded capsule that holds the message field on top and a control row below: the attachment
  * picker, the model pill, and the single trailing button that sends, dictates or stops.
  *
- * Photos and documents are staged as attachments on [MessageData], exactly like the chat composer
- * in `zyn-chat-compose`, so they flow through the existing send path untouched.
+ * Photos and documents are staged as attachments on [MessageData], exactly like the Stream-derived
+ * `ChatComposer` in the `com.zyn.chat.compose` package tree, so they flow through the existing send
+ * path untouched.
  *
  * Dictation is driven by [rememberSpeechInput] and runs continuously: every completed utterance is
  * appended to the field and listening restarts, until the person stops it with the same button or

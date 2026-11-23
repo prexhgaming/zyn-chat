@@ -27,7 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import com.zyn.chat.compose.ui.component.ComposerInputTrailingContentParams
 import com.zyn.chat.compose.ui.component.SpeechToTextButton
 import kotlinx.coroutines.launch

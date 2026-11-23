@@ -62,7 +62,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import com.zyn.chat.compose.ui.component.ComposerInputContentParams
 import com.zyn.chat.compose.ui.component.ComposerInputTrailingContentParams
 import com.zyn.chat.compose.ui.component.ComposerLeadingContentParams

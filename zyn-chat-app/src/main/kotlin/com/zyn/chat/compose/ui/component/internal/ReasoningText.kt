@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
-import com.zyn.chat.compose.R
+import com.zyn.chat.app.R
 import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.max

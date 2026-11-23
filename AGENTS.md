@@ -10,14 +10,15 @@ Build system: **Gradle Kotlin DSL only** (`.kts`). Never add Groovy `*.gradle` b
 Derived from `GetStream/stream-chat-android-ai`, re-namespaced to `com.zyn.chat.*`. Upstream
 Stream license headers stay in place (see `LICENSE`).
 
-## Modules
+## Module
 
-- `zyn-chat-compose` (`com.zyn.chat.compose`) — framework-agnostic Compose UI components:
-  `StreamingText`, `AITypingIndicator`, `ChatComposer`, `SpeechToTextButton`, AI message parts.
-  No Stream Chat, networking or ViewModel dependencies.
-- `zyn-chat-ondevice` (`com.zyn.chat.ondevice`) — on-device model integration (ML Kit GenAI).
-- `zyn-chat-app` (`com.zyn.chat.app`) — application module: chat UI, ViewModels, Retrofit layer,
-  Stream Chat client wiring.
+One Gradle module: `zyn-chat-app` (`com.zyn.chat.app`), holding three package trees:
+
+- `com.zyn.chat.app` — the application: chat UI, ViewModels, Retrofit layer, Stream Chat wiring.
+- `com.zyn.chat.compose` — Stream-derived Compose components (`StreamingText`, `AITypingIndicator`,
+  `ChatComposer`, `SpeechToTextButton`, AI message parts), kept as their own package tree and
+  pinned by Paparazzi snapshots even though they share the app's module.
+- `com.zyn.chat.ondevice` — on-device model integration (ML Kit GenAI).
 
 ## UI layer (`zyn-chat-app`)
 
@@ -45,9 +46,9 @@ Stream license headers stay in place (see `LICENSE`).
   `android:fillType`. Dropping that inheritance silently fills cutouts solid — the DeepSeek whale
   bug — so keep ancestor attribute inheritance in the path conversion.
 - The app owns its composer: `ui/chat/ZynComposer.kt` + `ComposerControls.kt` + `SmartSendButton.kt`
-  + `ModelSelector.kt`. The library's `ChatComposer` and `SpeechToTextButton` are intentionally left
-  untouched (and unused by the app), so the `zyn-chat-compose` Paparazzi snapshots keep matching —
-  don't restyle library components to change the app's look.
+  + `ModelSelector.kt`. The Stream-derived `ChatComposer` and `SpeechToTextButton` (in the
+  `com.zyn.chat.compose` package tree) are intentionally left untouched (and unused by the app), so
+  their Paparazzi snapshots keep matching — don't restyle them to change the app's look.
 - Dictation is the app's own `ui/chat/speech/SpeechInput.kt` state machine (idle / listening /
   processing / error / unavailable). It chains recognition attempts, because the platform recognizer
   stops at the first end of speech, so dictation keeps running until the person stops it or types —
@@ -156,11 +157,12 @@ Stream license headers stay in place (see `LICENSE`).
 ```bash
 ./gradlew :zyn-chat-app:assembleRelease    # what CI builds: the signed release APK
 ./gradlew :zyn-chat-app:assembleDebug      # local development only
-./gradlew :zyn-chat-app:testDebugUnitTest :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest
+./gradlew :zyn-chat-app:testDebugUnitTest  # every unit and Paparazzi snapshot test
 ./gradlew lint detekt                      # static analysis
 ```
 
-Toolchain: JDK 17, compileSdk 36, minSdk 23 (app and ondevice: 26).
+Toolchain: JDK 17, compileSdk 36, minSdk 26 (the single module's floor; the compose tree's old 23 is
+superseded).
 
 ## Build & test notes
 
@@ -175,10 +177,8 @@ Toolchain: JDK 17, compileSdk 36, minSdk 23 (app and ondevice: 26).
   `@Json` field names. Without them the failure lands inside `Application.onCreate` and the app dies
   before any screen appears. Keep serialiser creation lazy and failure-tolerant, as
   `ProviderStorage` / `ConversationStore` do.
-- `zyn-chat-compose` runs Paparazzi + Robolectric snapshot tests; they cannot share a JVM, hence
+- The app module runs Paparazzi + Robolectric snapshot tests; they cannot share a JVM, hence
   `tasks.withType<Test> { forkEvery = 1 }` — do not remove.
-- `zyn-chat-compose` / `zyn-chat-ondevice` compile with `-Xexplicit-api=strict`: new public
-  declarations need explicit visibility and return types.
 - Paparazzi snapshot filenames encode the test package (`com.zyn.chat.compose...`) — renaming
   packages means renaming those files too.
 - detekt `InvalidPackageDeclaration.rootPackage` is `com.zyn`.

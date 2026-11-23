@@ -21,13 +21,15 @@ distributing this application.
 - JDK 17
 - Android SDK with compileSdk 36 (`ANDROID_HOME` set, or `local.properties` with `sdk.dir`)
 
-## Modules
+## Module
 
-| Module | Package | Role |
-| --- | --- | --- |
-| `zyn-chat-compose` | `com.zyn.chat.compose` | Framework-agnostic Compose UI components (`StreamingText`, `AITypingIndicator`, `ChatComposer`, `SpeechToTextButton`, AI message parts). No chat/network dependencies. |
-| `zyn-chat-ondevice` | `com.zyn.chat.ondevice` | On-device model integration built on ML Kit GenAI. |
-| `zyn-chat-app` | `com.zyn.chat.app` | Application module (applicationId `com.zyn.chat`): chat screens, ViewModels, Retrofit network layer, Stream Chat client wiring. |
+A single Gradle module, `zyn-chat-app` (applicationId `com.zyn.chat`), holding three package trees:
+
+| Package tree | Role |
+| --- | --- |
+| `com.zyn.chat.app` | The application: chat screens, ViewModels, Retrofit network layer, Stream Chat client wiring. |
+| `com.zyn.chat.compose` | Stream-derived Compose UI components (`StreamingText`, `AITypingIndicator`, `ChatComposer`, `SpeechToTextButton`, AI message parts), pinned by Paparazzi snapshots. |
+| `com.zyn.chat.ondevice` | On-device model integration built on ML Kit GenAI. |
 
 Build scripts are Kotlin DSL (`.kts`) throughout, with versions centralised in
 [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
@@ -37,7 +39,7 @@ Build scripts are Kotlin DSL (`.kts`) throughout, with versions centralised in
 ```bash
 ./gradlew :zyn-chat-app:assembleRelease      # what CI builds: the signed release APK
 ./gradlew :zyn-chat-app:assembleDebug        # local development only
-./gradlew :zyn-chat-compose:testDebugUnitTest :zyn-chat-ondevice:testDebugUnitTest
+./gradlew :zyn-chat-app:testDebugUnitTest    # unit + Paparazzi snapshot tests
 ./gradlew lint detekt
 ```
 
@@ -83,6 +85,6 @@ that every release APK is signed with that key.
 ## CI
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs three jobs: `release-apk` (signed
-release APK build plus the R8 mapping), `unit-tests` (compose + ondevice unit and snapshot tests)
+release APK build plus the R8 mapping), `unit-tests` (all unit and Paparazzi snapshot tests)
 and `static-analysis` (`lint`, `detekt`). CI builds and uploads **the release APK only** — no
 debug APK job.
