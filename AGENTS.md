@@ -12,7 +12,7 @@ Stream license headers stay in place (see `LICENSE`).
 
 ## Module
 
-One Gradle module: `zyn-chat-app` (`com.zyn.chat.app`), holding three package trees:
+One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
 
 - `com.zyn.chat.app` — the application: chat UI, ViewModels, Retrofit layer, Stream Chat wiring.
 - `com.zyn.chat.compose` — Stream-derived Compose components (`StreamingText`, `AITypingIndicator`,
@@ -20,7 +20,7 @@ One Gradle module: `zyn-chat-app` (`com.zyn.chat.app`), holding three package tr
   pinned by Paparazzi snapshots even though they share the app's module.
 - `com.zyn.chat.ondevice` — on-device model integration (ML Kit GenAI).
 
-## UI layer (`zyn-chat-app`)
+## UI layer
 
 - Design tokens live in `ui/theme`: `Color.kt` (palettes), `Typography.kt` (type scale, also used for
   Markdown heading mapping), `Shape.kt` (radii). Change colours/type there, not inline.
@@ -155,10 +155,10 @@ One Gradle module: `zyn-chat-app` (`com.zyn.chat.app`), holding three package tr
 ## Commands
 
 ```bash
-./gradlew :zyn-chat-app:assembleRelease    # what CI builds: the signed release APK
-./gradlew :zyn-chat-app:assembleDebug      # local development only
-./gradlew :zyn-chat-app:testDebugUnitTest  # every unit and Paparazzi snapshot test
-./gradlew lint detekt                      # static analysis
+./gradlew :app:assembleRelease    # what CI builds: the signed release APK
+./gradlew :app:assembleDebug      # local development only
+./gradlew :app:testDebugUnitTest  # every unit and Paparazzi snapshot test
+./gradlew lint detekt             # static analysis
 ```
 
 Toolchain: JDK 17, compileSdk 36, minSdk 26 (the single module's floor; the compose tree's old 23 is

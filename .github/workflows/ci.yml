@@ -54,7 +54,7 @@ jobs:
       - name: Build release APK
         run: |
           chmod +x ./gradlew
-          ./gradlew :zyn-chat-app:assembleRelease --stacktrace
+          ./gradlew :app:assembleRelease
 
       - name: Verify APKs are signed with the release key
         run: |
@@ -64,7 +64,7 @@ jobs:
             echo "apksigner not found in $SDK, skipping signature check"
             exit 0
           fi
-          for apk in zyn-chat-app/build/outputs/apk/release/*.apk; do
+          for apk in app/build/outputs/apk/release/*.apk; do
             echo "== $apk"
             "$APKSIGNER" verify --print-certs "$apk" | head -3
           done
@@ -73,7 +73,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zyn-chat-release-apk
-          path: zyn-chat-app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zyn-chat-release-r8-mapping
-          path: zyn-chat-app/build/outputs/mapping/release/mapping.txt
+          path: app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: warn
           retention-days: 30
 
@@ -103,7 +103,7 @@ jobs:
       - name: Run unit tests
         run: |
           chmod +x ./gradlew
-          ./gradlew :zyn-chat-app:testDebugUnitTest --stacktrace
+          ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Upload test reports
         uses: actions/upload-artifact@v4

@@ -25,5 +25,5 @@ dependencyResolutionManagement {
 rootProject.name = "zyn-chat"
 
 // A single module: the app, the compose component tree and the on-device model tree all live in
-// :zyn-chat-app, so there is exactly one build script and one test invocation.
-include(":zyn-chat-app")
+// :app, so there is exactly one build script and one test invocation.
+include(":app")

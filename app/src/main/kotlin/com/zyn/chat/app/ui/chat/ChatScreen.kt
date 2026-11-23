@@ -59,6 +59,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.R
@@ -79,6 +80,7 @@ import com.zyn.chat.app.ui.components.MessageActionMenu
 import com.zyn.chat.compose.ui.component.AITypingIndicator
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     conversationId: String?,
@@ -282,7 +284,7 @@ fun ChatScreen(
                             ChatMessageItem(
                                 modifier = Modifier
                                     .padding(horizontal = 16.dp, vertical = 7.dp)
-                                    .animateItemPlacement(),
+                                    .animateItem(),
                                 message = message,
                                 onErrorAction = { errorActionMessage = it },
                                 onLongPress = { actionMenuMessage = it },

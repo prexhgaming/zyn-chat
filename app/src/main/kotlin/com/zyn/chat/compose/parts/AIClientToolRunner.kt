@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import kotlin.ConsistentCopyVisibility
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -57,6 +58,7 @@ public interface AIClientTool {
  * @param failure Why the device could not run the call, such as "Location not shared". Shown on
  * the step and told to the model.
  */
+@ConsistentCopyVisibility
 public data class AIClientToolResult internal constructor(
     val output: String? = null,
     val summary: String? = null,

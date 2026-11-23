@@ -23,7 +23,7 @@ distributing this application.
 
 ## Module
 
-A single Gradle module, `zyn-chat-app` (applicationId `com.zyn.chat`), holding three package trees:
+A single Gradle module, `app` (applicationId `com.zyn.chat`), holding three package trees:
 
 | Package tree | Role |
 | --- | --- |
@@ -37,9 +37,9 @@ Build scripts are Kotlin DSL (`.kts`) throughout, with versions centralised in
 ## Build & test
 
 ```bash
-./gradlew :zyn-chat-app:assembleRelease      # what CI builds: the signed release APK
-./gradlew :zyn-chat-app:assembleDebug        # local development only
-./gradlew :zyn-chat-app:testDebugUnitTest    # unit + Paparazzi snapshot tests
+./gradlew :app:assembleRelease      # what CI builds: the signed release APK
+./gradlew :app:assembleDebug        # local development only
+./gradlew :app:testDebugUnitTest    # unit + Paparazzi snapshot tests
 ./gradlew lint detekt
 ```
 

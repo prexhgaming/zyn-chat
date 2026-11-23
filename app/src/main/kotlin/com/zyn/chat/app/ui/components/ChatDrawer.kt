@@ -111,7 +111,7 @@ fun ChatDrawer(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    val closeSearch = {
+    val closeSearch: () -> Unit = {
         searchActive = false
         searchQuery = ""
         keyboardController?.hide()
