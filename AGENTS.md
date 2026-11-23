@@ -177,6 +177,21 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
 Toolchain: JDK 17, compileSdk 36, minSdk 26 (the single module's floor; the compose tree's old 23 is
 superseded).
 
+### Pushing from the sandbox
+
+`/workspace` has **no `.git`** and no JDK or Android SDK, so nothing can be committed or compiled
+there. To push, work through a clone and `gh`'s stored credentials (already authenticated):
+
+```bash
+git clone https://github.com/prexhgaming/zyn-chat.git /tmp/zyn-clone   # remote + history live here
+# copy the changed files from /workspace into the clone, then:
+git -C /tmp/zyn-clone add -A && git -C /tmp/zyn-clone commit && git -C /tmp/zyn-clone push origin main
+```
+
+Copy only the files you actually changed: the sandbox loses the executable bit, so `gradlew` always
+shows up as a spurious `100755 -> 100644` mode change — committing it would leave the wrapper
+non-executable for everyone.
+
 ## Build & test notes
 
 - The release build emits **one universal APK** (`zyn-chat-app/build/outputs/apk/release/`) —
