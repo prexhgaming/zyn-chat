@@ -34,10 +34,12 @@ import kotlinx.coroutines.flow.update
  *
  * @param context Any context; the application context is used.
  * @param keyStore Where keys are encrypted. Injectable for tests.
+ * @param imageAbilities Where refusals of pictures are remembered. Injectable for tests.
  */
 public class ProviderRepository(
     context: Context,
     private val keyStore: ApiKeyStore = ApiKeyStore(context),
+    private val imageAbilities: ImageAbilityStore = ImageAbilityStore(context),
 ) {
 
     private val storage = ProviderStorage(context)
@@ -143,8 +145,29 @@ public class ProviderRepository(
     public fun setModels(providerId: String, models: List<AiModel>, syncedAt: Long) {
         updateProvider(providerId) { provider ->
             provider.copy(
-                models = models,
+                models = models.map { model -> model.withLearnedAbilities(imageAbilities, providerId) },
                 connection = provider.connection.copy(lastSyncedAt = syncedAt),
+            )
+        }
+    }
+
+    /**
+     * Remembers that a provider refused a picture for one of its models, and stops offering the model
+     * pictures from now on.
+     *
+     * The refusal is folded into the model's abilities, which is what the composer and the send path
+     * both read, so they cannot disagree about it.
+     *
+     * @param providerId Provider that refused.
+     * @param modelId Model that was refused.
+     */
+    public fun rememberRefusedPictures(providerId: String, modelId: String) {
+        imageAbilities.refuse(providerId = providerId, modelId = modelId)
+        updateProvider(providerId) { provider ->
+            provider.copy(
+                models = provider.models.map { model ->
+                    model.withLearnedAbilities(imageAbilities, providerId)
+                },
             )
         }
     }

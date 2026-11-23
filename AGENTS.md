@@ -75,12 +75,22 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
   pure and unit-tested — change grouping rules there, not in the sheet. The drawer is a
   `ModalNavigationDrawer` with a partial-width sheet, animated scrim and an edge-swipe strip in
   `ui/AiChatApp.kt`.
-- **Model abilities are never assumed** (`data/providers/ModelCapabilities.kt`): every field is
-  tri-state, so `null` means unknown and is never treated as "no". A provider's own report wins over
-  the local `ModelCapabilityCatalog` (evidence-based family and suffix knowledge, with explicit
-  exceptions checked before families). Images are attached only when image support is positively
-  known: a known text-only model is blocked with an explanation, an unknown one is allowed with a
-  warning. Never collapse unknown into false.
+- **Model abilities come from the provider's report, never from the model's name**
+  (`data/providers/ModelCapabilities.kt`): every field is tri-state, so `null` means unknown and is
+  never treated as "no". `AiProviderClient` reads every shape providers use — OpenRouter's
+  `architecture.input_modalities` / `modality`, a top-level `input_modalities`, and a `capabilities`
+  object such as `{"image_input":{"supported":true}}`, where an explicit `false` is an answer and a
+  missing key is silence. The same slug can be vision on one provider and text-only on another, so a
+  silent provider leaves the field `null`: a known text-only model is blocked with an explanation, an
+  unknown one is sent with a warning. Never collapse unknown into false.
+- Pictures reach the provider as `image_url` content parts carrying a base64 `data:` URL: staged URIs
+  are read, shrunk and encoded in `data/chat/ImagePayload.kt`, carried by `ChatTurn.images`, and
+  written by `OpenAiProtocol` (turns without pictures still go as a plain string). Only a model the
+  provider called text-only is skipped; one that ever **refused** a picture is remembered per
+  provider+model in `data/providers/ImageAbilityStore.kt` and folded into the model by
+  `ProviderRepository` as a fallback only — a provider's own report always wins.
+- Known gap: `ChatViewModel.retryMessage` resends **text only**, because it builds a fresh
+  `MessageData` without the failed message's attachments.
 - Picture previews sit **inside** the composer's own field, not above it; `ImageThumbnails.kt`
   decodes off the main thread because there is no image-loading library on the classpath. A picture
   in a message opens `ui/chat/ImagePreview.kt`, and assistant attachments are rendered as well.

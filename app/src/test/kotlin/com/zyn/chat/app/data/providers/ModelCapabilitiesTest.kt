@@ -43,11 +43,11 @@ class ModelCapabilitiesTest {
     }
 
     @Test
-    fun `a vision marker is enough to allow images`() {
+    fun `a name that looks like vision buys nothing without a provider report`() {
         val model = ModelCatalog.enrich("ollama", "qwen2-vl-7b-instruct")
 
-        assertTrue(model.acceptsImages)
-        assertEquals(true, model.capabilities.imageSupport)
+        assertNull(model.capabilities.imageSupport)
+        assertFalse(model.acceptsImages)
     }
 
     @Test
@@ -60,27 +60,33 @@ class ModelCapabilitiesTest {
     }
 
     @Test
-    fun `a text-only variant does not inherit its family's vision support`() {
-        val textOnlyVariant = ModelCatalog.enrich("openai", "o1-mini")
-        val visionSibling = ModelCatalog.enrich("openai", "o1")
+    fun `a name that looks text-only blocks nothing on its own`() {
+        val textOnlyLooking = ModelCatalog.enrich("openai", "o1-mini")
 
-        assertEquals(false, textOnlyVariant.capabilities.imageSupport)
-        assertEquals(true, visionSibling.capabilities.imageSupport)
+        // Whether pictures work is the provider's answer to give, so an unanswered question stays
+        // unanswered: the composer warns and the request is still tried.
+        assertNull(textOnlyLooking.capabilities.imageSupport)
+        assertEquals(
+            ImageAttachmentDecision.Warn,
+            textOnlyLooking.capabilities.imageAttachmentDecision(),
+        )
     }
 
     @Test
     fun `a vendor namespace and a free suffix do not hide the model`() {
         val model = ModelCatalog.enrich("openrouter", "meta-llama/llama-4-scout:free")
 
-        assertTrue(model.acceptsImages)
         assertTrue(model.isFree)
+        assertNull(model.capabilities.imageSupport)
     }
 
     @Test
     fun `a dated snapshot still matches its family`() {
         val model = ModelCatalog.enrich("openai", "gpt-4o-2024-08-06")
 
-        assertTrue(model.acceptsImages)
+        // The family hint still fills in what a name can legitimately carry, but it no longer
+        // decides whether pictures work: that answer belongs to the provider.
+        assertNull(model.capabilities.imageSupport)
     }
 
     @Test

@@ -23,6 +23,11 @@ package com.zyn.chat.app.data.providers
  * back with a friendlier name, the context window the family is known for, and whether the slug marks
  * itself as free. When something is not known, the value stays `null` and the UI simply shows less —
  * guessing a context window would produce a wrong "out of context" warning later.
+ *
+ * Model **abilities** are never decorated here. What a model accepts is a property of the deployment
+ * serving it, not of its name, so image and tool support come from the provider's own report and stay
+ * unknown without one (see [ModelCapabilities]). The context window below is the single exception:
+ * it only ever trims history and cannot refuse anything, so a family hint is a fair approximation.
  */
 public object ModelCatalog {
 
@@ -37,7 +42,6 @@ public object ModelCatalog {
      */
     public fun enrich(providerId: String, reported: ReportedModel): AiModel {
         val capabilities = reported.capabilities
-            .orElse(ModelCapabilityCatalog.of(reported.slug))
             .orElse(ModelCapabilities(contextWindowTokens = contextWindowOf(reported.slug)))
 
         return AiModel(

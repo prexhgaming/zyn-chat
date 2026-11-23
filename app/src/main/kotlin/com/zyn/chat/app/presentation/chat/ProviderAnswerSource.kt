@@ -24,6 +24,7 @@ import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.data.providers.ProviderError
 import com.zyn.chat.app.data.providers.ProviderException
 import com.zyn.chat.app.data.providers.ProviderRepository
+import com.zyn.chat.app.data.providers.refusedPictures
 import com.zyn.chat.app.domain.chat.ChatChunk
 import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.domain.chat.ChatRequest
@@ -32,6 +33,7 @@ import com.zyn.chat.app.domain.chat.ContextBudget
 import com.zyn.chat.app.domain.chat.ContextBudget.estimateTokens
 import io.getstream.log.taggedLogger
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 
 /** The provider and model an answer will be asked from. */
 internal data class ProviderSelection(
@@ -80,7 +82,37 @@ internal class ProviderAnswerSource(
         selection: ProviderSelection,
         conversationId: String?,
         history: List<ChatTurn>,
-    ): Flow<ChatChunk> = chatEngine.stream(request(selection, conversationId, history))
+    ): Flow<ChatChunk> {
+        val askedWithPictures = history.lastOrNull()?.images?.isNotEmpty() == true
+
+        return chatEngine.stream(request(selection, conversationId, history))
+            .catch { failure ->
+                rememberRefusedPictures(failure = failure, selection = selection, asked = askedWithPictures)
+                throw failure
+            }
+    }
+
+    /**
+     * Records it when a provider refuses the pictures a request carried.
+     *
+     * This is how a model whose provider never states its abilities still ends up known: the provider's
+     * own refusal is the answer, and remembering it means the next attempt is offered without pictures
+     * instead of failing the same way again.
+     *
+     * @param failure What the provider answered with.
+     * @param selection Provider and model that were asked.
+     * @param asked Whether the request actually carried pictures.
+     */
+    private fun rememberRefusedPictures(failure: Throwable, selection: ProviderSelection, asked: Boolean) {
+        val refusal = (failure as? ProviderException)?.takeIf { asked }
+        if (refusal?.refusedPictures() == true) {
+            logger.d { "The provider refused pictures for this model; remembering it" }
+            repository.rememberRefusedPictures(
+                providerId = selection.provider.id,
+                modelId = selection.model.id,
+            )
+        }
+    }
 
     /** One sentence explaining a failed answer, in the app's language. */
     fun failureText(failure: Throwable): String {

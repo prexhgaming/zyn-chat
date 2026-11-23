@@ -37,10 +37,28 @@ public enum class ChatRole {
  *
  * @param role Who said it.
  * @param content Its text.
+ * @param images Pictures to send with it, in the order they were attached.
  */
 public data class ChatTurn(
     public val role: ChatRole,
     public val content: String,
+    public val images: List<ChatImage> = emptyList(),
+)
+
+/**
+ * A picture carried with a request.
+ *
+ * Pictures travel inline: the bytes are held base64-encoded and written into a `data:` URL when the
+ * request is built, which is the one form every OpenAI-compatible endpoint takes without a separate
+ * upload step of its own. Encoding happens where the picture is read (see `data/chat/ImagePayload.kt`),
+ * so the engine and the wire format stay free of image handling.
+ *
+ * @param mimeType Media type of the encoded picture, e.g. `image/jpeg`.
+ * @param base64 The picture's bytes, base64-encoded.
+ */
+public data class ChatImage(
+    public val mimeType: String,
+    public val base64: String,
 )
 
 /**

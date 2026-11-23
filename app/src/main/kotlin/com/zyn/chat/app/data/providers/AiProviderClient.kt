@@ -116,20 +116,28 @@ private data class ModelsResponse(val data: List<RemoteModel> = emptyList())
  *
  * Only the fields the app understands are declared, and all of them are optional, because
  * OpenAI-compatible endpoints range from returning nothing but an id (Ollama, llama.cpp) to
- * returning full capability metadata (OpenRouter). Everything else in the payload is ignored.
+ * returning full capability metadata (OpenRouter, some gateways). Everything else is ignored.
  *
  * @param id Provider-side model identifier, e.g. `gpt-4o-mini`.
  * @param name Human-readable name, when the provider sends one.
- * @param contextLength Context window, when the provider reports one.
+ * @param contextLength Context window, when the provider reports one under this name.
+ * @param maxInputTokens Context window under the other name providers use for it.
  * @param architecture What the model accepts, in OpenRouter's shape.
+ * @param inputModalities What the model accepts, stated at the top level by some providers.
+ * @param capabilities What the model accepts, as a `capabilities` object mapping capability names to
+ *   their support details.
  * @param supportedParameters Parameters the model supports; `tools` here is how tool use is detected.
  * @param pricing Per-token pricing, used only to tell a free model from a paid one.
  */
+@Suppress("LongParameterList") // One property per field of the payload; splitting it would not help.
 private data class RemoteModel(
     val id: String = "",
     val name: String? = null,
     @Json(name = "context_length") val contextLength: Int? = null,
+    @Json(name = "max_input_tokens") val maxInputTokens: Int? = null,
     val architecture: RemoteArchitecture? = null,
+    @Json(name = "input_modalities") val inputModalities: List<String>? = null,
+    val capabilities: Map<String, RemoteCapabilitySupport>? = null,
     @Json(name = "supported_parameters") val supportedParameters: List<String>? = null,
     val pricing: RemotePricing? = null,
 )
@@ -139,6 +147,13 @@ private data class RemoteArchitecture(
     @Json(name = "input_modalities") val inputModalities: List<String>? = null,
     val modality: String? = null,
 )
+
+/**
+ * One entry of a `capabilities` object.
+ *
+ * @param supported Whether the model supports that capability; `null` when the entry left it out.
+ */
+private data class RemoteCapabilitySupport(val supported: Boolean? = null)
 
 /** OpenRouter-shaped pricing, as strings in dollars per token. */
 private data class RemotePricing(val prompt: String? = null)
@@ -154,34 +169,58 @@ private fun RemoteModel.toReported(): ReportedModel = ReportedModel(
 /**
  * Reads the capabilities a provider stated, without inferring any it did not.
  *
- * `input_modalities` is preferred, with `modality` (`text+image->text`) as the fallback. Tool support
- * is taken from `supported_parameters` only when the provider sends that list at all — an endpoint
- * that stays silent leaves it unknown rather than being recorded as incapable.
+ * Modalities come from whichever field the provider used (see [modalities]); tool support is taken
+ * from `supported_parameters` only when the provider sends that list at all — an endpoint that stays
+ * silent leaves it unknown rather than being recorded as incapable. Nothing here looks at the model's
+ * id: what a deployment accepts is a property of that deployment, not of the name it serves it under.
  */
 private fun RemoteModel.capabilities(): ModelCapabilities = ModelCapabilities(
     inputModalities = modalities(),
     supportsTools = supportedParameters?.let { parameters -> parameters.any { it == TOOLS_PARAMETER } },
-    contextWindowTokens = contextLength,
+    contextWindowTokens = contextLength ?: maxInputTokens,
 )
 
-/** What the model takes, or `null` when the provider did not say. */
-private fun RemoteModel.modalities(): Set<Modality>? {
-    architecture?.inputModalities?.let { reported ->
-        return reported.mapNotNull { value -> Modality.of(value) }.toSet()
-    }
+/**
+ * What the model takes, or `null` when the provider did not say.
+ *
+ * Providers describe this in several shapes, so the first one that names anything wins: OpenRouter's
+ * `architecture.input_modalities`, its `modality` summary (`text+image->text`, inputs before the
+ * arrow), a top-level `input_modalities`, then a `capabilities` object.
+ */
+private fun RemoteModel.modalities(): Set<Modality>? =
+    architecture?.inputModalities?.let(::modalitiesOf)
+        ?: architecture?.modality?.substringBefore(MODALITY_ARROW)?.split(MODALITY_SEPARATOR)?.let(::modalitiesOf)
+        ?: inputModalities?.let(::modalitiesOf)
+        ?: capabilities?.statedModalities()
 
-    // "text+image->text" describes inputs before the arrow and outputs after it.
-    return architecture?.modality
-        ?.substringBefore(MODALITY_ARROW)
-        ?.split(MODALITY_SEPARATOR)
-        ?.mapNotNull { value -> Modality.of(value) }
-        ?.toSet()
+/** Modalities a provider listed as words, or `null` when it named none the app recognises. */
+private fun modalitiesOf(values: List<String>): Set<Modality>? = values
+    .mapNotNull { value -> Modality.of(value) }
+    .toSet()
+    .takeIf { found -> found.isNotEmpty() }
+
+/**
+ * Modalities a `capabilities` object states.
+ *
+ * Every key maps to its own support details, and providers using this shape list a key for each
+ * capability they know about — so an explicit `false` is an answer, and only a missing key is silence.
+ */
+private fun Map<String, RemoteCapabilitySupport>.statedModalities(): Set<Modality>? {
+    val image = entries.firstOrNull { (name, _) -> name in IMAGE_CAPABILITY_KEYS }?.value ?: return null
+    return when (image.supported) {
+        true -> setOf(Modality.Text, Modality.Image)
+        false -> setOf(Modality.Text)
+        null -> null
+    }
 }
 
 private const val MODELS_PATH = "/models"
 
 /** Parameter a provider lists when a model can call tools. */
 private const val TOOLS_PARAMETER = "tools"
+
+/** Capability names a provider uses for image input, inside a `capabilities` object. */
+private val IMAGE_CAPABILITY_KEYS = setOf("image_input", "vision")
 
 private const val MODALITY_ARROW = "->"
 private const val MODALITY_SEPARATOR = "+"

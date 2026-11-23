@@ -17,15 +17,21 @@
 package com.zyn.chat.app.presentation.chat
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyn.chat.compose.parts.AIMessagePart
+import com.zyn.chat.app.data.chat.ImagePayload
+import com.zyn.chat.app.data.providers.AiModel
 import com.zyn.chat.app.data.providers.ApiKeyStore
+import com.zyn.chat.app.data.providers.ImageAttachmentDecision
 import com.zyn.chat.app.data.providers.ProviderException
 import com.zyn.chat.app.data.providers.ProviderRepository
+import com.zyn.chat.app.data.providers.imageAttachmentDecision
 import com.zyn.chat.app.data.repository.ChatAiRepository
 import com.zyn.chat.app.domain.chat.ChatChunk
 import com.zyn.chat.app.domain.chat.ChatEngine
+import com.zyn.chat.app.domain.chat.ChatImage
 import com.zyn.chat.app.domain.chat.ChatRole
 import com.zyn.chat.app.domain.chat.ChatTurn
 import com.zyn.chat.app.domain.chat.ConversationRepository
@@ -43,6 +49,7 @@ import io.getstream.chat.android.client.events.AIIndicatorUpdatedEvent
 import io.getstream.chat.android.client.events.ChatEvent
 import io.getstream.chat.android.client.extensions.cidToTypeAndId
 import io.getstream.chat.android.core.internal.InternalStreamChatApi
+import io.getstream.chat.android.models.Attachment
 import io.getstream.chat.android.models.ChannelCapabilities
 import io.getstream.chat.android.models.EventType
 import io.getstream.chat.android.models.User
@@ -87,7 +94,7 @@ internal class ChatViewModel(
     chatEngine: ChatEngine,
     private val conversations: ConversationRepository,
     private val localConversationId: String,
-    appContext: Context,
+    private val appContext: Context,
     conversationId: String?,
 ) : ViewModel() {
 
@@ -245,7 +252,9 @@ internal class ChatViewModel(
         // provider directly and this conversation never touches Stream.
         val selection = providerAnswers.currentSelection()
         if (selection != null) {
-            providerAnswer = viewModelScope.launch { answerWithProvider(text, selection) }
+            // Staged pictures travel with the question, so the provider sees what was attached.
+            val staged = data.attachments.toList()
+            providerAnswer = viewModelScope.launch { answerWithProvider(text, staged, selection) }
             return
         }
 
@@ -380,6 +389,32 @@ internal class ChatViewModel(
     }
 
     /**
+     * Pictures to send with a question.
+     *
+     * They are read only when the model's own provider said the model takes pictures. A model known to
+     * refuse them gets the text alone, and one whose abilities the provider never stated is tried
+     * rather than blocked — the app cannot know better than the provider, and guessing either way from
+     * the model's name is exactly what this avoids.
+     *
+     * @param attachments URIs staged with the question, which may include documents.
+     * @param model Model the question will be asked of.
+     */
+    private suspend fun imagesFor(attachments: List<Uri>, model: AiModel): List<ChatImage> =
+        when (model.capabilities.imageAttachmentDecision()) {
+            ImageAttachmentDecision.Blocked -> {
+                logger.d { "The model is text-only; asking without the staged pictures" }
+                emptyList()
+            }
+            else -> ImagePayload.load(context = appContext, uris = attachments)
+        }
+
+    /** Staged URIs as attachments the transcript can draw, without copying any file. */
+    private suspend fun stagedAttachments(attachments: List<Uri>): List<Attachment> =
+        withContext(Dispatchers.IO) {
+            attachmentStorageHelper.toAttachments(attachmentStorageHelper.resolveMetadata(attachments))
+        }
+
+    /**
      * Streams an answer from the person's own provider.
      *
      * The history is built from this conversation alone, so no other chat can influence the answer,
@@ -387,12 +422,20 @@ internal class ChatViewModel(
      * configured. Cancelling the collection (stop, or leaving the chat) cancels the HTTP call.
      *
      * @param text What the person just asked.
+     * @param attachments URIs staged with the question, sent when the model takes pictures.
      * @param selection Provider and model to ask.
      */
-    private suspend fun answerWithProvider(text: String, selection: ProviderSelection) {
+    private suspend fun answerWithProvider(
+        text: String,
+        attachments: List<Uri>,
+        selection: ProviderSelection,
+    ) {
         val answerId = UUID.randomUUID().toString()
         val questionId = UUID.randomUUID().toString()
         val conversationId = cid.value ?: localConversationId
+
+        val images = imagesFor(attachments = attachments, model = selection.model)
+        val staged = if (attachments.isEmpty()) emptyList() else stagedAttachments(attachments)
 
         // Built before the question is added, so it appears in the request exactly once. The stored
         // turns of this conversation win; the screen's messages are the fallback for conversations
@@ -410,9 +453,18 @@ internal class ChatViewModel(
                     content = message.content,
                 )
             }
-        }) + ChatTurn(role = ChatRole.User, content = text)
+        }) + ChatTurn(role = ChatRole.User, content = text, images = images)
 
-        localMessages.update { listOf(localMessage(ChatUiState.Message.Role.User, text, questionId)) + it }
+        localMessages.update {
+            listOf(
+                localMessage(
+                    role = ChatUiState.Message.Role.User,
+                    content = text,
+                    id = questionId,
+                    attachments = staged,
+                ),
+            ) + it
+        }
 
         val answer = StringBuilder()
         var finalState: ChatUiState.AssistantState = ChatUiState.AssistantState.Idle
@@ -661,12 +713,13 @@ private fun localMessage(
     role: ChatUiState.Message.Role,
     content: String,
     id: String = UUID.randomUUID().toString(),
+    attachments: List<Attachment> = emptyList(),
     isGenerating: Boolean = false,
 ) = ChatUiState.Message(
     id = id,
     role = role,
     content = content,
-    attachments = emptyList(),
+    attachments = attachments,
     parts = emptyList(),
     isGenerating = isGenerating,
 )

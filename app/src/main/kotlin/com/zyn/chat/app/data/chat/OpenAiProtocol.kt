@@ -19,8 +19,10 @@ package com.zyn.chat.app.data.chat
 import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import com.zyn.chat.app.domain.chat.ChatChunk
+import com.zyn.chat.app.domain.chat.ChatImage
 import com.zyn.chat.app.domain.chat.ChatRequest
 import com.zyn.chat.app.domain.chat.ChatRole
+import com.zyn.chat.app.domain.chat.ChatTurn
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -43,9 +45,7 @@ internal class OpenAiProtocol(moshi: Moshi) {
     fun requestBody(request: ChatRequest, stream: Boolean): RequestBody {
         val body = ChatCompletionRequest(
             model = request.model.slug,
-            messages = request.messages.map { turn ->
-                RequestMessage(role = turn.role.wireName(), content = turn.content)
-            },
+            messages = request.messages.map { turn -> turn.toRequestMessage() },
             stream = stream,
             maxTokens = request.maxOutputTokens,
         )
@@ -85,6 +85,29 @@ private fun ChatRole.wireName(): String = when (this) {
     ChatRole.Assistant -> "assistant"
 }
 
+/**
+ * A turn as the wire format takes it: a plain string when it is only text, a list of parts when it
+ * carries pictures.
+ *
+ * The two shapes are both legal and every provider takes the first, so text-only traffic keeps the
+ * exact body it had before pictures were supported.
+ */
+private fun ChatTurn.toRequestMessage(): RequestMessage = RequestMessage(
+    role = role.wireName(),
+    content = if (images.isEmpty()) content else parts(),
+)
+
+/** The turn's text and pictures, in that order, as content parts. */
+private fun ChatTurn.parts(): List<RequestPart> = buildList {
+    // A turn that is only a picture is legal, so blank text is left out rather than sent empty.
+    if (content.isNotBlank()) add(RequestPart(type = TEXT_PART_TYPE, text = content))
+    images.forEach { image -> add(RequestPart(type = IMAGE_PART_TYPE, imageUrl = image.inlineImage())) }
+}
+
+/** The `data:` URL an inline picture is sent as. */
+private fun ChatImage.inlineImage(): RequestImage =
+    RequestImage(url = "data:$mimeType;base64,$base64")
+
 private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
 private data class ChatCompletionRequest(
@@ -94,7 +117,32 @@ private data class ChatCompletionRequest(
     @Json(name = "max_tokens") val maxTokens: Int? = null,
 )
 
-private data class RequestMessage(val role: String, val content: String)
+/** @param content Plain text, or the parts of a turn that carries pictures. */
+private data class RequestMessage(val role: String, val content: Any)
+
+/**
+ * One part of a message: a run of text, or a picture.
+ *
+ * Fields that do not apply to the part are left out of the JSON entirely.
+ *
+ * @param type `text` or `image_url`.
+ * @param text The text of a `text` part.
+ * @param imageUrl The picture of an `image_url` part.
+ */
+private data class RequestPart(
+    val type: String,
+    val text: String? = null,
+    @Json(name = "image_url") val imageUrl: RequestImage? = null,
+)
+
+/** Where a picture can be fetched from; an inline `data:` URL for the pictures this app sends. */
+private data class RequestImage(val url: String)
+
+/** Content-part type of a run of text. */
+private const val TEXT_PART_TYPE = "text"
+
+/** Content-part type of a picture. */
+private const val IMAGE_PART_TYPE = "image_url"
 
 private data class ChunkPayload(
     val choices: List<ChunkChoice> = emptyList(),
