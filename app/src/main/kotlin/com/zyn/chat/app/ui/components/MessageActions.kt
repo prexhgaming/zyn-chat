@@ -41,7 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
-import com.zyn.chat.app.data.chat.ChatUiState
+import com.zyn.chat.app.presentation.chat.ChatUiState
 import com.zyn.chat.app.ui.icons.ZynIcons
 import kotlinx.coroutines.delay
 
