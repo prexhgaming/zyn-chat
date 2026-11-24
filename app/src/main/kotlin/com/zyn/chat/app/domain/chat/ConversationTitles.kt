@@ -68,14 +68,25 @@ public object ConversationTitles {
     /** The prompt that asks a model to name a conversation started by [question]. */
     public fun prompt(question: String): String = "$INSTRUCTION\n\n$question"
 
-    /** Cleans a title a model returned, so an explanation or stray quotes never reach the list. */
+    /**
+     * Cleans a title a model returned, so an explanation or stray quotes never reach the list.
+     *
+     * A model that ignores the instruction and answers in code — the usual failure for this prompt,
+     * where the model writes a snippet instead of a name — is rejected: the caller then keeps the
+     * device-made title instead of showing code as the conversation's name.
+     */
     public fun fromModel(answer: String): String {
         val title = local(answer)
         // A model that ignored the instruction may have answered in several lines; the first is the title.
-        return title.take(MAX_LOCAL_TITLE)
+        val candidate = title.take(MAX_LOCAL_TITLE)
+        return candidate.takeIf { it.isNotBlank() && !CODE_INDICATORS.any { marker -> it.contains(marker) } }
+            ?: ""
     }
 
     private const val ELLIPSIS = "\u2026"
+
+    /** Markers that mean a model answered in code rather than with a name. */
+    private val CODE_INDICATORS = listOf("package ", "import ", "class ", "fun ", "val ", "var ", "=", "{", "}", "(", ")")
 
     private val MARKDOWN = Regex("[#*_`>~]+")
     private val WHITESPACE = Regex("\\s+")

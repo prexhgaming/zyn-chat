@@ -52,8 +52,6 @@
     <string name="zyn_action_copy">Copy</string>
     <string name="zyn_action_share">Share</string>
     <string name="zyn_action_regenerate">Regenerate</string>
-    <string name="zyn_action_feedback_good">Good response</string>
-    <string name="zyn_action_feedback_bad">Bad response</string>
 
     <!-- Composer -->
     <string name="zyn_composer_placeholder">Message Zyn Chat</string>

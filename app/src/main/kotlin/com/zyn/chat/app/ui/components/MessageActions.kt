@@ -16,19 +16,14 @@
 
 package com.zyn.chat.app.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,17 +46,14 @@ private const val COPIED_FEEDBACK_MS = 1_500L
 /**
  * The action row that sits under a completed answer.
  *
- * Thumbs on the left rate the answer; copy, share and regenerate sit on the right, in the order they
- * are reached for. Nothing is drawn while a response is still being written or is empty, so no action
- * can ever target a half-written message. Copy confirms itself in place: the glyph becomes a tick for
- * a moment, which needs no snackbar and no focus.
+ * Copy, share and regenerate sit on the left, in the order they are reached for. Nothing is drawn
+ * while a response is still being written or is empty, so no action can ever target a half-written
+ * message. Copy confirms itself in place: the glyph becomes a tick for a moment.
  *
  * @param message The answer these actions belong to.
  * @param onCopy Invoked to put the answer on the clipboard.
  * @param onShare Invoked to share the answer.
  * @param onRegenerate Invoked to ask for another version of the answer.
- * @param feedback The rating already given, or `null`.
- * @param onFeedback Invoked with the new rating, or `null` when the same thumb is tapped again.
  * @param modifier Applied to the row.
  */
 @Composable
@@ -70,8 +62,6 @@ fun MessageActions(
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onRegenerate: () -> Unit,
-    feedback: ChatUiState.Message.Feedback?,
-    onFeedback: (ChatUiState.Message.Feedback?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (message.isGenerating || message.content.isBlank()) return
@@ -85,55 +75,33 @@ fun MessageActions(
         }
     }
 
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val good = feedback == ChatUiState.Message.Feedback.Good
-            val bad = feedback == ChatUiState.Message.Feedback.Bad
-
-            ThumbButton(
-                icon = ZynIcons.ThumbUp,
-                label = stringResource(R.string.zyn_action_feedback_good),
-                active = good,
-                onClick = { onFeedback(if (good) null else ChatUiState.Message.Feedback.Good) },
-            )
-            ThumbButton(
-                icon = ZynIcons.ThumbDown,
-                label = stringResource(R.string.zyn_action_feedback_bad),
-                active = bad,
-                onClick = { onFeedback(if (bad) null else ChatUiState.Message.Feedback.Bad) },
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            ActionButton(
-                icon = if (copied) ZynIcons.Check else ZynIcons.Copy,
-                label = stringResource(
-                    if (copied) R.string.zyn_message_copied else R.string.zyn_action_copy,
-                ),
-                onClick = {
-                    onCopy()
-                    copied = true
-                },
-            )
-            ActionButton(
-                icon = ZynIcons.Share,
-                label = stringResource(R.string.zyn_action_share),
-                onClick = onShare,
-            )
-            ActionButton(
-                icon = ZynIcons.Refresh,
-                label = stringResource(R.string.zyn_action_regenerate),
-                onClick = onRegenerate,
-            )
-        }
+        ActionButton(
+            icon = if (copied) ZynIcons.Check else ZynIcons.Copy,
+            label = stringResource(
+                if (copied) R.string.zyn_message_copied else R.string.zyn_action_copy,
+            ),
+            onClick = {
+                onCopy()
+                copied = true
+            },
+        )
+        ActionButton(
+            icon = ZynIcons.Share,
+            label = stringResource(R.string.zyn_action_share),
+            onClick = onShare,
+        )
+        ActionButton(
+            icon = ZynIcons.Refresh,
+            label = stringResource(R.string.zyn_action_regenerate),
+            onClick = onRegenerate,
+        )
     }
 }
 
@@ -153,40 +121,3 @@ private fun ActionButton(
         )
     }
 }
-
-/** One thumb: accent-tinted when this is the rating, muted otherwise. */
-@Composable
-private fun ThumbButton(
-    icon: ImageVector,
-    label: String,
-    active: Boolean,
-    onClick: () -> Unit,
-) {
-    val color = if (active) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Surface(
-        onClick = onClick,
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.size(SMALL_ACTION_SIZE),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = color,
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(THUMB_GLYPH_PADDING),
-        )
-    }
-}
-
-/** Edge of a thumb target. */
-private val SMALL_ACTION_SIZE = 30.dp
-
-/** Padding inside a thumb target, which keeps the glyph small without shrinking the tap area. */
-private val THUMB_GLYPH_PADDING = 6.dp

@@ -72,6 +72,13 @@ class ConversationTitlesTest {
     }
 
     @Test
+    fun `a model answer that is really code is rejected`() {
+        assertEquals("", ConversationTitles.fromModel("package com.example.demo.MainKt"))
+        assertEquals("", ConversationTitles.fromModel("fun main() { println(\"hi\") }"))
+        assertEquals("", ConversationTitles.fromModel("val x = 1"))
+    }
+
+    @Test
     fun `a model that over-answers is still capped`() {
         val title = ConversationTitles.fromModel("w".repeat(200))
 

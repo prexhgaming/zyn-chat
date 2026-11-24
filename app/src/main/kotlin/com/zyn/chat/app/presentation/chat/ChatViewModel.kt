@@ -648,23 +648,6 @@ internal class ChatViewModel(
     }
 
     /**
-     * Rates an answer, or clears its rating when the same thumb is tapped again.
-     *
-     * The rating lives with the conversation in this ViewModel, so it survives switching between
-     * chats — the ViewModel does not go away with the screen.
-     *
-     * @param messageId The answer being rated.
-     * @param feedback The new verdict, or `null` to clear it.
-     */
-    fun setFeedback(messageId: String, feedback: ChatUiState.Message.Feedback?) {
-        localMessages.update { messages ->
-            messages.map { message ->
-                if (message.id == messageId) message.copy(feedback = feedback) else message
-            }
-        }
-    }
-
-    /**
      * Asks for another version of the newest answer.
      *
      * The answer being replaced is dropped from the transcript and from storage first, then the

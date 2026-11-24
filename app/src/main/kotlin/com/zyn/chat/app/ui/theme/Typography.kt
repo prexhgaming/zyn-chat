@@ -96,12 +96,12 @@ internal val Typography =
             lineHeight = 18.sp,
             letterSpacing = 0.sp,
         ),
-        // Message text: comfortable size with a generous line height.
+        // Message text: smaller and more compact for the chat bubble.
         bodyLarge = TextStyle(
             fontFamily = FontFamily.Default,
             fontWeight = FontWeight.Normal,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
             letterSpacing = 0.sp,
         ),
         bodyMedium = TextStyle(

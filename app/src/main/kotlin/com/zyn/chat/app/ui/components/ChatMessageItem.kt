@@ -84,7 +84,6 @@ import io.getstream.chat.android.models.Message
  * @param onCopy Invoked to copy an assistant answer.
  * @param onShare Invoked to share an assistant answer.
  * @param onRegenerate Invoked to ask for another version; only offered on the latest answer.
- * @param onFeedback Invoked to rate an assistant answer.
  * @param isLastAssistant Whether this answer is the most recent one, which is the only one whose
  *   replacement a regenerate can mean.
  */
@@ -97,7 +96,6 @@ public fun ChatMessageItem(
     onCopy: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
     onRegenerate: (() -> Unit)? = null,
-    onFeedback: ((ChatUiState.Message.Feedback?) -> Unit)? = null,
     isLastAssistant: Boolean = false,
 ) {
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * MAX_BUBBLE_FRACTION).dp
@@ -115,7 +113,6 @@ public fun ChatMessageItem(
                 onShare = onShare,
                 // Regenerate replaces the current answer, so older answers have no button for it.
                 onRegenerate = onRegenerate.takeIf { isLastAssistant },
-                onFeedback = onFeedback,
             )
 
             is ChatUiState.Message.Role.User -> BubbleMessage(
@@ -153,7 +150,6 @@ private fun AssistantMessage(
     onCopy: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
     onRegenerate: (() -> Unit)? = null,
-    onFeedback: ((ChatUiState.Message.Feedback?) -> Unit)? = null,
 ) {
     Column(
         modifier = modifier,
@@ -178,14 +174,12 @@ private fun AssistantMessage(
             )
         }
 
-        if (onCopy != null && onShare != null && onFeedback != null) {
+        if (onCopy != null && onShare != null && onRegenerate != null) {
             MessageActions(
                 message = message,
                 onCopy = onCopy,
                 onShare = onShare,
-                onRegenerate = onRegenerate ?: {},
-                feedback = message.feedback,
-                onFeedback = onFeedback,
+                onRegenerate = onRegenerate,
             )
         }
     }

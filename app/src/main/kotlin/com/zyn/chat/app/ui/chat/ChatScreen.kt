@@ -309,9 +309,6 @@ fun ChatScreen(
                                 onCopy = { copyMessage(message) },
                                 onShare = { shareMessage(message) },
                                 onRegenerate = { chatViewModel.regenerate(message) },
-                                onFeedback = { verdict ->
-                                    chatViewModel.setFeedback(message.id, verdict)
-                                },
                                 isLastAssistant = message.id == lastAssistantId,
                             )
                         }

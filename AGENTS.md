@@ -171,15 +171,16 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
   the question *and* the answer, and `ChatViewModel.nameConversation` stores the result with
   `TitleSource.Model`. `TitleSource.Manual` (a rename) is final, and a model-written title is never
   rewritten. `ConversationRepository.revision` is the signal the drawer refreshes on.
+  The model's answer is validated: if it contains code-like markers (e.g. `package `, `class `, `{`,
+  `}`) the title is rejected and the device-made title is kept instead.
 - Kept pictures: `ImagePayload.load` writes the exact bytes sent into
   `filesDir/pictures/<conversationId>/`, named by a hash of their content, and returns a `file://` URI
   that `StoredTurn.attachments` persists. History rebuilds bubbles from those copies, so a picture
   survives a restart — a picker's `content://` grant would not. `ConversationRepository.delete`
   removes the folder; never go back to storing picker URIs in `StoredTurn`.
 - Every completed answer has an inline action row (`ui/components/MessageActions.kt`): copy (with a
-  brief tick), share through the system chooser, regenerate (newest answer only, which replaces the
-  stored exchange via `dropLastExchange`), and good/bad feedback. Feedback lives in the ViewModel for
-  now — it survives chat switching but is not written to disk.
+  brief tick), share through the system chooser, and regenerate (newest answer only, which replaces the
+  stored exchange via `dropLastExchange`).
 - **Credentials never leak**: `di/NetworkModule.kt` redacts `Authorization` / `x-api-key` /
   `api-key` / `x-goog-api-key` on the single logging interceptor, and logging is only enabled in
   debug builds (`App.kt` passes `BuildConfig.DEBUG`). Every provider authenticates with a **header,
