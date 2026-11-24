@@ -59,9 +59,9 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
 - Taking a picture is the one attachment path that writes a file: `ui/chat/CameraCapture.kt` puts the
   shot in `cache/camera/` and hands the camera app a `FileProvider` URI — authority
   `<applicationId>.fileprovider`, declared in `AndroidManifest.xml` with `res/xml/zyn_file_paths.xml`,
-  while the code builds that authority from `context.packageName`, so an `applicationIdSuffix` would
-  break it. No storage permission is involved, and the image-capability rules gate the camera exactly
-  like the photo picker: a model known to be text-only is refused before the camera opens.
+   while the code builds that authority from `context.packageName`, so an `applicationIdSuffix` would
+   break it. No storage permission is involved, and the camera stages a picture exactly like the photo
+   picker does — the provider decides whether it can read it.
 - Dictation is the app's own `ui/chat/speech/SpeechInput.kt` state machine (idle / listening /
   processing / error / unavailable). It chains recognition attempts, because the platform recognizer
   stops at the first end of speech, so dictation keeps running until the person stops it or types —
@@ -148,7 +148,9 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
   legacy Stream path untouched. `presentation/chat/ProviderAnswerSource.kt` owns the selection, the
   key lookup and the failure copy. **Engines are stateless**: a request carries its whole
   conversation, built from that conversation alone, and collecting is what makes the HTTP call — so
-   cancelling (stop, or leaving the chat) cancels it and no answer can land in another chat.
+   cancelling (stop, or deleting the chat) cancels it and no answer can land in another chat.
+   **Leaving the chat does not cancel it**: the ViewModel lives in a process-scoped store, so the
+   answer keeps streaming while the person is elsewhere.
 - **Failed sends are recoverable**: a provider failure marks the *question* `isFailed` with the
   provider's reason (`ChatUiState.Message.errorReason`) and drops any partial answer, instead of
   inserting a failure reply. `ChatViewModel.retryMessage` resends through the normal send path and
@@ -159,12 +161,25 @@ One Gradle module: `app` (`com.zyn.chat.app`), holding three package trees:
   `filesDir/conversations/`, and `domain/chat/ConversationRepository.kt` is the **only** source of a
   conversation's turns and title, always keyed by conversation id. Never add a shared or global message
   list: a provider request is built from `history(conversationId)` alone, which is what keeps one
-  chat's history out of another's (the per-conversation `ViewModelStore` key and the cancelled stream
-  job in `ChatViewModel` complete the guarantee).
-- Titles are derived on the device (`domain/chat/ConversationTitles.kt`, Markdown stripped, capped at
-  48 chars) instead of repeating the first message verbatim. `TitleSource.Manual` (a rename) is final:
-  an automatic title never overwrites it. `ConversationRepository.revision` is the signal the drawer
-  refreshes on.
+   chat's history out of another's. The per-conversation ViewModel stores in `di/ChatViewModelStores.kt`
+   complete the guarantee: each conversation has its own ViewModel, keyed by its storage id, and those
+   ViewModels are released only when the conversation is deleted. `ui/components/ViewModelStore.kt`
+   only *provides* a store now — the old version cleared it on dispose, which killed a running answer
+   the moment the person switched chats. Never reintroduce a store owned by the screen.
+- Titles start as a device-derived placeholder (`domain/chat/ConversationTitles.kt`, Markdown stripped,
+  capped at 48 chars) and are then upgraded once by the model: `ProviderAnswerSource.title` asks with
+  the question *and* the answer, and `ChatViewModel.nameConversation` stores the result with
+  `TitleSource.Model`. `TitleSource.Manual` (a rename) is final, and a model-written title is never
+  rewritten. `ConversationRepository.revision` is the signal the drawer refreshes on.
+- Kept pictures: `ImagePayload.load` writes the exact bytes sent into
+  `filesDir/pictures/<conversationId>/`, named by a hash of their content, and returns a `file://` URI
+  that `StoredTurn.attachments` persists. History rebuilds bubbles from those copies, so a picture
+  survives a restart — a picker's `content://` grant would not. `ConversationRepository.delete`
+  removes the folder; never go back to storing picker URIs in `StoredTurn`.
+- Every completed answer has an inline action row (`ui/components/MessageActions.kt`): copy (with a
+  brief tick), share through the system chooser, regenerate (newest answer only, which replaces the
+  stored exchange via `dropLastExchange`), and good/bad feedback. Feedback lives in the ViewModel for
+  now — it survives chat switching but is not written to disk.
 - **Credentials never leak**: `di/NetworkModule.kt` redacts `Authorization` / `x-api-key` /
   `api-key` / `x-goog-api-key` on the single logging interceptor, and logging is only enabled in
   debug builds (`App.kt` passes `BuildConfig.DEBUG`). Every provider authenticates with a **header,

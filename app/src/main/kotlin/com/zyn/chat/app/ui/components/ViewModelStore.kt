@@ -18,37 +18,34 @@ package com.zyn.chat.app.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 
 /**
- * Provides a fresh ViewModelStore for the composable content.
- * The store is cleared when the composable leaves the composition.
+ * Scopes the composable content to [store].
+ *
+ * The store belongs to the caller and is deliberately **not** cleared when this content leaves the
+ * composition. The previous version created a store here and cleared it on dispose, which destroyed
+ * the chat's ViewModel — and with it the running answer — the moment someone switched to another
+ * conversation. Whoever owns the store decides when it is released.
+ *
+ * @param store Store whose ViewModels the content may obtain.
+ * @param content The content to scope.
  */
 @Composable
-internal fun ViewModelStore(
-    vararg keys: Any?,
+internal fun ProvideViewModelStore(
+    store: ViewModelStore,
     content: @Composable () -> Unit,
 ) {
-    // Create a fresh ViewModelStore on each new composition
-    val viewModelStore = remember { ViewModelStore() }
-    val viewModelStoreOwner = remember(viewModelStore) {
+    val owner = remember(store) {
         object : ViewModelStoreOwner {
-            override val viewModelStore: ViewModelStore = viewModelStore
+            override val viewModelStore: ViewModelStore = store
         }
     }
 
-    // Clear the store when the composition is disposed
-    DisposableEffect(keys) {
-        onDispose {
-            viewModelStore.clear()
-        }
-    }
-
-    CompositionLocalProvider(LocalViewModelStoreOwner provides viewModelStoreOwner) {
+    CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
         content()
     }
 }

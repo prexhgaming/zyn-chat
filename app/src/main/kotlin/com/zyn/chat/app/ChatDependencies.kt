@@ -22,6 +22,7 @@ import com.zyn.chat.app.data.api.ChatAiApi
 import com.zyn.chat.app.data.chat.ConversationStore
 import com.zyn.chat.app.data.chat.ProviderChatEngine
 import com.zyn.chat.app.data.chat.conversationsDirectory
+import com.zyn.chat.app.data.chat.picturesDirectory
 import com.zyn.chat.app.data.providers.AiProviderClient
 import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.data.providers.ProviderRepository
@@ -94,7 +95,10 @@ public class ChatDependencies(
             moshi = moshi,
         )
         conversationRepository = ConversationRepository(
-            ConversationStore(conversationsDirectory(context.filesDir)),
+            store = ConversationStore(conversationsDirectory(context.filesDir)),
+            // Kept copies of sent pictures live beside the conversations, so deleting one can take
+            // them with it.
+            picturesRoot = picturesDirectory(context.filesDir),
         )
     }
 }

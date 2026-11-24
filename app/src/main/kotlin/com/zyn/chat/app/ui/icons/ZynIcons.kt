@@ -242,6 +242,58 @@ public object ZynIcons {
         segment(6.6f, 6.6f, 17.4f, 17.4f)
         segment(17.4f, 6.6f, 6.6f, 17.4f)
     }
+
+    /** Arrow rising out of a tray. Used by the share action on an answer. */
+    public val Share: ImageVector = outline("ZynShare") {
+        segment(12f, 15.4f, 12f, 4.6f)
+        moveTo(7.4f, 9.2f)
+        lineTo(12f, 4.6f)
+        lineTo(16.6f, 9.2f)
+        moveTo(5.8f, 12.4f)
+        curveTo(4.5f, 13.4f, 3.6f, 14.8f, 3.6f, 16.4f)
+        curveTo(3.6f, 18.7f, 5.5f, 20.4f, 7.8f, 20.4f)
+        lineTo(16.2f, 20.4f)
+        curveTo(18.5f, 20.4f, 20.4f, 18.7f, 20.4f, 16.4f)
+        curveTo(20.4f, 14.8f, 19.5f, 13.4f, 18.2f, 12.4f)
+    }
+
+    /** Thumbs up. Used to mark an answer as a good one. */
+    public val ThumbUp: ImageVector = outline("ZynThumbUp") {
+        moveTo(6.6f, 20.4f)
+        lineTo(6.6f, 11.6f)
+        moveTo(4.2f, 11.6f)
+        lineTo(6.6f, 11.6f)
+        lineTo(11.4f, 5f)
+        quadTo(12.6f, 3.5f, 14.2f, 4.5f)
+        curveTo(15.1f, 5.1f, 15.4f, 6.1f, 15.1f, 7.1f)
+        lineTo(14.5f, 9.6f)
+        lineTo(18.4f, 9.6f)
+        quadTo(19.5f, 9.6f, 20f, 10.8f)
+        quadTo(20.4f, 11.9f, 19.8f, 12.9f)
+        lineTo(17.2f, 17.6f)
+        quadTo(16.7f, 18.5f, 15.8f, 18.9f)
+        lineTo(15.1f, 19.2f)
+        lineTo(6.6f, 19.2f)
+    }
+
+    /** Thumbs down. Used to mark an answer as a bad one. */
+    public val ThumbDown: ImageVector = outline("ZynThumbDown") {
+        moveTo(6.6f, 3.6f)
+        lineTo(6.6f, 12.4f)
+        moveTo(4.2f, 12.4f)
+        lineTo(6.6f, 12.4f)
+        lineTo(11.4f, 19f)
+        quadTo(12.6f, 20.5f, 14.2f, 19.5f)
+        curveTo(15.1f, 18.9f, 15.4f, 17.9f, 15.1f, 16.9f)
+        lineTo(14.5f, 14.4f)
+        lineTo(18.4f, 14.4f)
+        quadTo(19.5f, 14.4f, 20f, 13.2f)
+        quadTo(20.4f, 12.1f, 19.8f, 11.1f)
+        lineTo(17.2f, 6.4f)
+        quadTo(16.7f, 5.5f, 15.8f, 5.1f)
+        lineTo(15.1f, 4.8f)
+        lineTo(6.6f, 4.8f)
+    }
 }
 
 private const val VIEWPORT = 24f

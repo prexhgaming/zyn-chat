@@ -24,6 +24,11 @@ import androidx.lifecycle.viewModelScope
 import com.zyn.chat.compose.parts.AIMessagePart
 import com.zyn.chat.app.R
 import com.zyn.chat.app.data.chat.ImagePayload
+import com.zyn.chat.app.data.chat.PreparedImage
+import com.zyn.chat.app.data.chat.StoredAttachment
+import com.zyn.chat.app.data.chat.TitleSource
+import com.zyn.chat.app.data.chat.picturesDirectory
+import com.zyn.chat.app.data.chat.toStorageName
 import com.zyn.chat.app.data.providers.ApiKeyStore
 import com.zyn.chat.app.data.providers.ProviderException
 import com.zyn.chat.app.data.providers.ProviderRepository
@@ -125,7 +130,15 @@ internal class ChatViewModel(
         context = appContext,
     )
 
-    /** The in-flight provider answer, cancelled when the person stops it or leaves the chat. */
+    /** Whether this conversation has already been offered a model-written title. */
+    private var titleAttempted = false
+
+    /**
+     * The in-flight provider answer, cancelled when the person stops it or deletes the chat.
+     *
+     * Deliberately not tied to the screen: the ViewModel outlives the chat composable, so switching
+     * to another conversation lets this run on and its text is there on return.
+     */
     private var providerAnswer: Job? = null
 
     /**
@@ -166,20 +179,21 @@ internal class ChatViewModel(
             }
             .launchIn(viewModelScope)
 
-        // Reopening a conversation restores what was said in it. This used to be missing entirely,
-        // so a reopened chat came up empty even once it stopped crashing.
+        // Reopening a conversation restores what was said in it, pictures included. Stored turns are
+        // read rather than history: history exists to be sent to a provider and carries text only.
         viewModelScope.launch {
             val storedId = cid.value ?: localConversationId
-            val stored = conversations.history(storedId)
+            val stored = conversations.turns(storedId)
             if (stored.isNotEmpty() && localMessages.value.isEmpty()) {
                 localMessages.value = stored.reversed().map { turn ->
                     localMessage(
-                        role = if (turn.role == ChatRole.Assistant) {
+                        role = if (turn.role.equals(ASSISTANT_ROLE, ignoreCase = true)) {
                             ChatUiState.Message.Role.Assistant
                         } else {
                             ChatUiState.Message.Role.User
                         },
                         content = turn.content,
+                        attachments = turn.attachments.map(StoredAttachment::toAttachment),
                     )
                 }
             }
@@ -389,37 +403,56 @@ internal class ChatViewModel(
     }
 
     /**
-     * Pictures to send with a question.
+     * Pictures to send with a question, each with a copy kept on the device.
      *
      * Every staged picture is sent: whether a deployment can read pictures is the provider's answer
      * to give, so the app does not pre-empt it. A provider that refuses them says so, and that
      * failure is reported in the conversation like any other.
      *
+     * The kept copy goes in this conversation's own folder, so deleting the chat can take it with it.
+     *
      * @param attachments URIs staged with the question, which may include documents.
      */
-    private suspend fun imagesFor(attachments: List<Uri>): List<ChatImage> =
-        ImagePayload.load(context = appContext, uris = attachments)
+    private suspend fun imagesFor(attachments: List<Uri>): List<PreparedImage> =
+        ImagePayload.load(
+            context = appContext,
+            uris = attachments,
+            directory = picturesDirectory(appContext.filesDir)
+                .resolve(localConversationId.toStorageName()),
+        )
 
     /**
-     * Staged URIs as attachments the transcript can draw, without copying any file.
+     * Staged URIs as attachments the transcript can draw.
      *
-     * The picture itself is the attachment's `imageUrl`, so the chat can decode the same local URI
-     * the composer previewed. The Stream helper is not used here: it describes files for upload,
-     * which is not what a message rendered on this screen needs.
+     * A picture points at the copy that was just kept, so the bubble shows exactly what was sent and
+     * keeps working after a restart; if no copy could be written it falls back to the staged URI,
+     * which at least draws for this session. Documents stay plain file attachments.
+     *
+     * @param attachments Staged URIs, in the order they were added.
+     * @param pictures The prepared pictures, in the same order as the picture URIs among them.
      */
-    private suspend fun stagedAttachments(attachments: List<Uri>): List<Attachment> =
-        withContext(Dispatchers.IO) {
-            attachments.map { uri ->
-                val mimeType = runCatching { appContext.contentResolver.getType(uri) }.getOrNull()
-                val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
+    private suspend fun stagedAttachments(
+        attachments: List<Uri>,
+        pictures: List<PreparedImage>,
+    ): List<Attachment> = withContext(Dispatchers.IO) {
+        val remaining = pictures.iterator()
+        attachments.map { uri ->
+            val mimeType = runCatching { appContext.contentResolver.getType(uri) }.getOrNull()
+            val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank)
 
-                if (mimeType?.startsWith("image/") == true) {
-                    Attachment(type = "image", imageUrl = uri.toString(), name = name, mimeType = mimeType)
-                } else {
-                    Attachment(type = "file", assetUrl = uri.toString(), name = name, mimeType = mimeType)
-                }
+            if (mimeType?.startsWith(IMAGE_MIME_TYPE_PREFIX) == true) {
+                val kept = if (remaining.hasNext()) remaining.next().storedUri else null
+                Attachment(
+                    type = "image",
+                    imageUrl = kept ?: uri.toString(),
+                    name = name,
+                    mimeType = mimeType,
+                )
+            } else {
+                Attachment(type = "file", assetUrl = uri.toString(), name = name, mimeType = mimeType)
             }
         }
+    }
 
     /**
      * Puts the answer being generated into the transcript.
@@ -504,18 +537,26 @@ internal class ChatViewModel(
      * @param text What the person just asked.
      * @param attachments URIs staged with the question, sent with it as pictures.
      * @param selection Provider and model to ask.
+     * @param showQuestion Whether to draw the question. A regenerate re-asks a question already on
+     *   screen, so it answers without putting a second copy of it into the transcript.
      */
     private suspend fun answerWithProvider(
         text: String,
         attachments: List<Uri>,
         selection: ProviderSelection,
+        showQuestion: Boolean = true,
     ) {
         val answerId = UUID.randomUUID().toString()
         val questionId = UUID.randomUUID().toString()
         val conversationId = cid.value ?: localConversationId
 
-        val images = imagesFor(attachments = attachments)
-        val staged = if (attachments.isEmpty()) emptyList() else stagedAttachments(attachments)
+        val pictures = imagesFor(attachments = attachments)
+        val images = pictures.map(PreparedImage::image)
+        val staged = if (attachments.isEmpty()) {
+            emptyList()
+        } else {
+            stagedAttachments(attachments = attachments, pictures = pictures)
+        }
 
         // Built before the question is added, so it appears in the request exactly once.
         val history = providerHistory(
@@ -524,15 +565,17 @@ internal class ChatViewModel(
             images = images,
         )
 
-        localMessages.update {
-            listOf(
-                localMessage(
-                    role = ChatUiState.Message.Role.User,
-                    content = text,
-                    id = questionId,
-                    attachments = staged,
-                ),
-            ) + it
+        if (showQuestion) {
+            localMessages.update {
+                listOf(
+                    localMessage(
+                        role = ChatUiState.Message.Role.User,
+                        content = text,
+                        id = questionId,
+                        attachments = staged,
+                    ),
+                ) + it
+            }
         }
 
         val answer = StringBuilder()
@@ -552,7 +595,120 @@ internal class ChatViewModel(
             answer = answer.toString(),
             selection = selection,
             finalState = finalState,
+            // Only pictures that really got a copy are stored: a URI that stops resolving after a
+            // restart would draw as a broken picture, which is worse than no attachment at all.
+            questionAttachments = pictures.mapNotNull { prepared ->
+                prepared.storedUri?.let { uri ->
+                    StoredAttachment(uri = uri, name = null, mimeType = prepared.image.mimeType)
+                }
+            },
         )
+
+        nameConversation(
+            conversationId = conversationId,
+            question = text,
+            answer = answer.toString(),
+            selection = selection,
+        )
+    }
+
+    /**
+     * Gives a conversation the title the model writes for it, once.
+     *
+     * By the time this runs the device-made title is already stored, so the drawer has something to
+     * show immediately and keeps it if this call fails. It never replaces a name the person chose and
+     * runs at most once per conversation, so a title is not rewritten on every later exchange.
+     *
+     * @param conversationId Conversation to name.
+     * @param question What the conversation opened with.
+     * @param answer The answer it got.
+     * @param selection Provider and model to ask.
+     */
+    private suspend fun nameConversation(
+        conversationId: String,
+        question: String,
+        answer: String,
+        selection: ProviderSelection,
+    ) {
+        if (titleAttempted) return
+        titleAttempted = true
+
+        // Only a title derived on the device may be upgraded; a model-written or manual one is final.
+        if (conversations.conversation(conversationId)?.titleSource != TitleSource.Local) return
+
+        val title = providerAnswers.title(
+            selection = selection,
+            question = question,
+            answer = answer,
+        ) ?: return
+
+        if (conversations.setTitle(conversationId, title, TitleSource.Model)) {
+            _uiState.update { state -> state.copy(title = title) }
+        }
+    }
+
+    /**
+     * Rates an answer, or clears its rating when the same thumb is tapped again.
+     *
+     * The rating lives with the conversation in this ViewModel, so it survives switching between
+     * chats — the ViewModel does not go away with the screen.
+     *
+     * @param messageId The answer being rated.
+     * @param feedback The new verdict, or `null` to clear it.
+     */
+    fun setFeedback(messageId: String, feedback: ChatUiState.Message.Feedback?) {
+        localMessages.update { messages ->
+            messages.map { message ->
+                if (message.id == messageId) message.copy(feedback = feedback) else message
+            }
+        }
+    }
+
+    /**
+     * Asks for another version of the newest answer.
+     *
+     * The answer being replaced is dropped from the transcript and from storage first, then the
+     * same question is asked again with the pictures it was asked with, so the new answer replaces
+     * the old one instead of sitting next to it. Only the newest answer can be regenerated: the UI
+     * offers this on that one alone, and the button is hidden everywhere else.
+     *
+     * @param message The answer to replace.
+     */
+    fun regenerate(message: ChatUiState.Message) {
+        if (_uiState.value.assistantState.isBusy()) return
+        val selection = providerAnswers.currentSelection() ?: return
+        val question = questionBefore(message.id) ?: return
+
+        viewModelScope.launch {
+            val conversationId = cid.value ?: localConversationId
+            val pictures = conversations.turns(conversationId)
+                .lastOrNull { turn -> turn.attachments.isNotEmpty() }
+                ?.attachments
+                ?.filter { attachment -> attachment.uri.isNotBlank() }
+                ?.map { attachment -> Uri.parse(attachment.uri) }
+                .orEmpty()
+
+            localMessages.update { messages -> messages.filterNot { it.id == message.id } }
+            conversations.dropLastExchange(conversationId)
+            _uiState.update { it.copy(assistantState = ChatUiState.AssistantState.Thinking) }
+
+            answerWithProvider(
+                text = question,
+                attachments = pictures,
+                selection = selection,
+                showQuestion = false,
+            )
+        }
+    }
+
+    /** The question that the answer with [answerId] answers, taken from the message before it. */
+    private fun questionBefore(answerId: String): String? {
+        val messages = localMessages.value
+        val index = messages.indexOfFirst { it.id == answerId }
+        if (index < 0) return null
+        return messages.drop(index + 1)
+            .firstOrNull { it.role == ChatUiState.Message.Role.User }
+            ?.content
     }
 
     /**
@@ -639,6 +795,7 @@ internal class ChatViewModel(
      * @param answer What came back.
      * @param selection Provider and model that answered.
      * @param finalState How the answer ended.
+     * @param questionAttachments Pictures kept for the question, to be drawn again on reopening.
      */
     private suspend fun recordExchange(
         conversationId: String,
@@ -646,6 +803,7 @@ internal class ChatViewModel(
         answer: String,
         selection: ProviderSelection,
         finalState: ChatUiState.AssistantState,
+        questionAttachments: List<StoredAttachment> = emptyList(),
     ) {
         if (answer.isBlank() || finalState == ChatUiState.AssistantState.Error) return
 
@@ -655,6 +813,7 @@ internal class ChatViewModel(
             answer = answer,
             providerId = selection.provider.id,
             modelId = selection.model.id,
+            questionAttachments = questionAttachments,
         )
     }
 
@@ -859,6 +1018,16 @@ private fun localMessage(
 
 /** Shortest gap between two transcript updates while an answer streams, in milliseconds. */
 private const val STREAM_FRAME_MS = 32L
+
+/** Media types that mark a staged attachment as a picture. */
+private const val IMAGE_MIME_TYPE_PREFIX = "image/"
+
+/** Role a stored answer is filed under. */
+private const val ASSISTANT_ROLE = "assistant"
+
+/** A stored picture in the form the transcript draws it. */
+private fun StoredAttachment.toAttachment(): Attachment =
+    Attachment(type = type, imageUrl = uri, name = name, mimeType = mimeType)
 
 private const val ON_DEVICE_INSTRUCTIONS =
     "You are a helpful assistant answering on the person's device, without a connection to the server. " +

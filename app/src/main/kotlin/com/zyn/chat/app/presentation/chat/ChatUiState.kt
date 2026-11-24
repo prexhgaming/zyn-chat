@@ -57,6 +57,7 @@ data class ChatUiState(
      * @param isGenerating Indicates if the message is currently being generated
      * @param isFailed Indicates if the message failed to send (user messages only)
      * @param errorReason Human-readable error description for failed messages
+     * @param feedback The person's verdict on an answer, or `null` when they gave none.
      */
     data class Message(
         val id: String,
@@ -67,7 +68,22 @@ data class ChatUiState(
         val isGenerating: Boolean,
         val isFailed: Boolean = false,
         val errorReason: String? = null,
+        val feedback: Feedback? = null,
     ) {
+        /**
+         * How the person judged an answer.
+         *
+         * Only two verdicts are kept: the point is to flag an answer for the model to learn from, not
+         * to collect a rating scale.
+         */
+        enum class Feedback {
+            /** Worth keeping. */
+            Good,
+
+            /** Worth correcting. */
+            Bad,
+        }
+
         /**
          * Represents the role of a message sender in the conversation.
          */

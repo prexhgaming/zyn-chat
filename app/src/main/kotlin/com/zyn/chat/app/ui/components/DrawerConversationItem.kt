@@ -25,18 +25,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zyn.chat.app.R
-import com.zyn.chat.app.ui.brand.markFor
 import com.zyn.chat.app.ui.theme.RowShape
 
 /**
- * A recent conversation, rendered as a compact single-line row: brand mark, then title.
+ * A recent conversation, rendered as a single line of text.
+ *
+ * There is deliberately no icon or badge beside the title: a list of conversations is read by its
+ * text, and an avatar that falls back to the title's initials repeats the title at half the size.
  *
  * Long press opens the row menu, which is where a conversation is renamed or deleted. The menu is
  * the only affordance on the row besides tapping it, so the list stays scannable.
  *
  * @param title Conversation title. Truncated with an ellipsis when it does not fit.
  * @param selected Whether this conversation is the one currently open.
- * @param modelSlug Model the conversation was last answered with, used for its brand mark.
  * @param onClick Invoked when the row is tapped.
  * @param onRename Invoked when "Rename" is chosen from the row menu.
  * @param onDelete Invoked when "Delete" is chosen from the row menu.
@@ -47,7 +48,6 @@ import com.zyn.chat.app.ui.theme.RowShape
 fun DrawerConversationItem(
     title: String,
     selected: Boolean,
-    modelSlug: String?,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
@@ -75,12 +75,6 @@ fun DrawerConversationItem(
                 .padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BrandMark(
-                label = title,
-                markRes = markFor("", modelSlug.orEmpty()),
-                size = 20.dp,
-            )
-
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
@@ -93,9 +87,7 @@ fun DrawerConversationItem(
                     },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp),
+                modifier = Modifier.weight(1f),
             )
         }
 

@@ -81,6 +81,12 @@ import io.getstream.chat.android.models.Message
  * @param modifier Applied to the message.
  * @param onErrorAction Invoked when the error indicator of a failed message is tapped.
  * @param onLongPress Invoked when the message is long pressed, to open its action menu.
+ * @param onCopy Invoked to copy an assistant answer.
+ * @param onShare Invoked to share an assistant answer.
+ * @param onRegenerate Invoked to ask for another version; only offered on the latest answer.
+ * @param onFeedback Invoked to rate an assistant answer.
+ * @param isLastAssistant Whether this answer is the most recent one, which is the only one whose
+ *   replacement a regenerate can mean.
  */
 @Composable
 public fun ChatMessageItem(
@@ -88,6 +94,11 @@ public fun ChatMessageItem(
     modifier: Modifier = Modifier,
     onErrorAction: ((ChatUiState.Message) -> Unit)? = null,
     onLongPress: ((ChatUiState.Message) -> Unit)? = null,
+    onCopy: (() -> Unit)? = null,
+    onShare: (() -> Unit)? = null,
+    onRegenerate: (() -> Unit)? = null,
+    onFeedback: ((ChatUiState.Message.Feedback?) -> Unit)? = null,
+    isLastAssistant: Boolean = false,
 ) {
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * MAX_BUBBLE_FRACTION).dp
 
@@ -100,6 +111,11 @@ public fun ChatMessageItem(
             is ChatUiState.Message.Role.Assistant -> AssistantMessage(
                 message = message,
                 onImageClick = openImage,
+                onCopy = onCopy,
+                onShare = onShare,
+                // Regenerate replaces the current answer, so older answers have no button for it.
+                onRegenerate = onRegenerate.takeIf { isLastAssistant },
+                onFeedback = onFeedback,
             )
 
             is ChatUiState.Message.Role.User -> BubbleMessage(
@@ -134,6 +150,10 @@ private fun AssistantMessage(
     message: ChatUiState.Message,
     onImageClick: (Attachment) -> Unit,
     modifier: Modifier = Modifier,
+    onCopy: (() -> Unit)? = null,
+    onShare: (() -> Unit)? = null,
+    onRegenerate: (() -> Unit)? = null,
+    onFeedback: ((ChatUiState.Message.Feedback?) -> Unit)? = null,
 ) {
     Column(
         modifier = modifier,
@@ -155,6 +175,17 @@ private fun AssistantMessage(
             StreamingText(
                 text = message.content,
                 animate = false,
+            )
+        }
+
+        if (onCopy != null && onShare != null && onFeedback != null) {
+            MessageActions(
+                message = message,
+                onCopy = onCopy,
+                onShare = onShare,
+                onRegenerate = onRegenerate ?: {},
+                feedback = message.feedback,
+                onFeedback = onFeedback,
             )
         }
     }

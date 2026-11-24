@@ -53,10 +53,10 @@ class ConversationSearchTest {
 
     @Test
     fun `only the title is searched, because the title is all a row shows`() {
-        val all = listOf(chat("chat-1", "Coffee in Rome", modelSlug = "openai/gpt-4o"))
+        val all = listOf(chat("messaging:coffee", "Coffee in Rome"))
 
-        assertTrue(all.matching("chat-1").isEmpty())
-        assertTrue(all.matching("gpt-4o").isEmpty())
+        // The id is not drawn, so it must not match either.
+        assertTrue(all.matching("messaging").isEmpty())
     }
 
     @Test
@@ -97,8 +97,7 @@ class ConversationSearchTest {
     }
 }
 
-private fun chat(id: String, title: String, modelSlug: String? = null): Conversation = Conversation(
+private fun chat(id: String, title: String): Conversation = Conversation(
     id = id,
     title = title,
-    modelSlug = modelSlug,
 )

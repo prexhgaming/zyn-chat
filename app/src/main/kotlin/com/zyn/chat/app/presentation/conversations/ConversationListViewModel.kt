@@ -118,8 +118,5 @@ private fun ConversationMeta.toConversation(): Conversation = Conversation(
     id = id,
     title = title,
     updatedAt = updatedAt,
-    modelSlug = modelId?.substringAfterLast(CID_SEPARATOR),
     channelId = id.takeIf(::isChannelId),
 )
-
-private const val CID_SEPARATOR = ':'

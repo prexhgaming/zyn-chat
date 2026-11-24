@@ -17,14 +17,17 @@
 package com.zyn.chat.app.domain.chat
 
 import com.zyn.chat.app.data.chat.ConversationStore
+import com.zyn.chat.app.data.chat.StoredAttachment
 import com.zyn.chat.app.data.chat.StoredConversation
 import com.zyn.chat.app.data.chat.StoredTurn
 import com.zyn.chat.app.data.chat.TitleSource
+import com.zyn.chat.app.data.chat.toStorageName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.UUID
 
 /**
@@ -53,6 +56,7 @@ private const val CHANNEL_ID_SEPARATOR = ':'
 public data class ConversationMeta(
     val id: String,
     val title: String,
+    val titleSource: TitleSource = TitleSource.Local,
     val providerId: String? = null,
     val modelId: String? = null,
     val updatedAt: Long = 0L,
@@ -68,6 +72,7 @@ public data class ConversationMeta(
  */
 public class ConversationRepository internal constructor(
     private val store: ConversationStore,
+    private val picturesRoot: File? = null,
 ) {
 
     private val _revision = MutableStateFlow(0L)
@@ -87,6 +92,17 @@ public class ConversationRepository internal constructor(
         }
     }
 
+    /**
+     * The stored turns of one conversation, oldest first, including their attachments.
+     *
+     * This is what the screen rebuilds from when a conversation is reopened: unlike [history], which
+     * exists to be sent to a provider and carries text only, it keeps the pictures the exchange was
+     * sent with.
+     */
+    public suspend fun turns(conversationId: String): List<StoredTurn> = withContext(Dispatchers.IO) {
+        store.get(conversationId)?.turns.orEmpty()
+    }
+
     /** One conversation's title and model, or `null` when nothing is stored under that id. */
     public suspend fun conversation(conversationId: String): ConversationMeta? = withContext(Dispatchers.IO) {
         store.get(conversationId)?.toMeta()
@@ -103,6 +119,7 @@ public class ConversationRepository internal constructor(
         answer: String,
         providerId: String?,
         modelId: String?,
+        questionAttachments: List<StoredAttachment> = emptyList(),
     ): StoredConversation = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val previous = store.get(conversationId)
@@ -113,7 +130,9 @@ public class ConversationRepository internal constructor(
             providerId = providerId ?: previous?.providerId,
             modelId = modelId ?: previous?.modelId,
             updatedAt = now,
-            turns = previous?.turns.orEmpty() + StoredTurn(USER_ROLE, question) + StoredTurn(ASSISTANT_ROLE, answer),
+            turns = previous?.turns.orEmpty() +
+                StoredTurn(USER_ROLE, question, questionAttachments) +
+                StoredTurn(ASSISTANT_ROLE, answer),
         )
         store.save(stored)
         bump()
@@ -143,10 +162,28 @@ public class ConversationRepository internal constructor(
         true
     }
 
-    /** Forgets a conversation and everything it asked. */
+    /** Forgets a conversation, everything it asked, and the pictures kept for it. */
     public suspend fun delete(conversationId: String) = withContext(Dispatchers.IO) {
         store.delete(conversationId)
+        // The copies are only reachable through the conversation, so they go with it.
+        picturesRoot?.let { root -> File(root, conversationId.toStorageName()).deleteRecursively() }
         bump()
+    }
+
+    /**
+     * Forgets the last question and answer of a conversation.
+     *
+     * A regenerated answer replaces the exchange it supersedes, so the pair is dropped first and the
+     * new one is recorded normally; without this the conversation would keep both answers.
+     *
+     * @return `true` when an exchange was removed.
+     */
+    public suspend fun dropLastExchange(conversationId: String): Boolean = withContext(Dispatchers.IO) {
+        val conversation = store.get(conversationId) ?: return@withContext false
+        if (conversation.turns.size < EXCHANGE_TURNS) return@withContext false
+        store.save(conversation.copy(turns = conversation.turns.dropLast(EXCHANGE_TURNS)))
+        bump()
+        true
     }
 
     private fun bump() {
@@ -156,6 +193,7 @@ public class ConversationRepository internal constructor(
     private fun StoredConversation.toMeta(): ConversationMeta = ConversationMeta(
         id = id,
         title = title,
+        titleSource = titleSource,
         providerId = providerId,
         modelId = modelId,
         updatedAt = updatedAt,
@@ -164,6 +202,9 @@ public class ConversationRepository internal constructor(
     private companion object {
         const val USER_ROLE = "user"
         const val ASSISTANT_ROLE = "assistant"
+
+        /** A question and its answer make one exchange. */
+        const val EXCHANGE_TURNS = 2
     }
 }
 

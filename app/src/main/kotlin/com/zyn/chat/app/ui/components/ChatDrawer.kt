@@ -428,7 +428,6 @@ private fun DrawerConversationRow(
     DrawerConversationItem(
         title = conversation.title,
         selected = selected,
-        modelSlug = conversation.modelSlug,
         onClick = onClick,
         onRename = onRename,
         onDelete = onDelete,

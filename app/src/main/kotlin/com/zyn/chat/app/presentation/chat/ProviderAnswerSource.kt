@@ -28,8 +28,10 @@ import com.zyn.chat.app.data.providers.refusedPictures
 import com.zyn.chat.app.domain.chat.ChatChunk
 import com.zyn.chat.app.domain.chat.ChatEngine
 import com.zyn.chat.app.domain.chat.ChatRequest
+import com.zyn.chat.app.domain.chat.ChatRole
 import com.zyn.chat.app.domain.chat.ChatTurn
 import com.zyn.chat.app.domain.chat.ContextBudget
+import com.zyn.chat.app.domain.chat.ConversationTitles
 import com.zyn.chat.app.domain.chat.ContextBudget.estimateTokens
 import io.getstream.log.taggedLogger
 import kotlinx.coroutines.flow.Flow
@@ -113,6 +115,36 @@ internal class ProviderAnswerSource(
             )
         }
     }
+
+    /**
+     * Asks the model to name a conversation.
+     *
+     * One small request, collected to the end: a title is needed once, so there is nothing to stream
+     * and nothing to show while it runs. The question and the answer are both included, because a
+     * title that describes the exchange is the point — a title taken from the question alone is what
+     * the device already produces for free.
+     *
+     * @param selection Provider and model to ask.
+     * @param question What the conversation opened with.
+     * @param answer What came back.
+     * @return A ready title, or `null` when the call failed or produced nothing usable.
+     */
+    suspend fun title(selection: ProviderSelection, question: String, answer: String): String? =
+        runCatching {
+            val naming = request(
+                selection = selection,
+                conversationId = null,
+                history = listOf(
+                    ChatTurn(role = ChatRole.User, content = ConversationTitles.prompt(question)),
+                    ChatTurn(role = ChatRole.Assistant, content = answer),
+                ),
+            )
+            val text = StringBuilder()
+            chatEngine.stream(naming).collect { chunk ->
+                if (chunk is ChatChunk.Text) text.append(chunk.delta)
+            }
+            ConversationTitles.fromModel(text.toString()).takeIf(String::isNotBlank)
+        }.getOrNull()
 
     /** One sentence explaining a failed answer, in the app's language. */
     fun failureText(failure: Throwable): String {

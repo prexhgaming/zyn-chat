@@ -24,10 +24,23 @@ import com.zyn.chat.app.domain.chat.ChatImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.security.MessageDigest
 import java.util.Base64
 
 /**
- * Turns staged pictures into something a request can carry.
+ * A picture ready to send, together with the copy kept on the device.
+ *
+ * @param image The picture exactly as the request will carry it.
+ * @param storedUri `file://` URI of the kept copy, or `null` when nothing could be written.
+ */
+internal data class PreparedImage(
+    val image: ChatImage,
+    val storedUri: String?,
+)
+
+/**
+ * Turns staged pictures into something a request can carry, and keeps a copy of each.
  *
  * Pictures are sent inline, as base64 inside a `data:` URL, because that is the one form every
  * OpenAI-compatible endpoint takes without an upload step of its own. An untouched phone photo would
@@ -35,9 +48,13 @@ import java.util.Base64
  * decoded at a power-of-two reduction and re-encoded as JPEG; a picture that is already small enough
  * is sent exactly as it was, without a needless re-encode.
  *
- * Every call runs on the IO dispatcher: reading, decoding and encoding pictures is real work and must
- * never happen on the main thread. A URI that is not a readable picture is skipped rather than failing
- * the send, because documents belong to the provider's own file handling, not to this one.
+ * Those same bytes are written into app storage, because the URI a picker hands back is a temporary
+ * permission: it is readable while the process that received it lives, and may be useless after a
+ * restart. Keeping the copy is what lets a reopened conversation show its pictures again.
+ *
+ * Every call runs on the IO dispatcher: reading, decoding, encoding and writing pictures is real work
+ * and must never happen on the main thread. A URI that is not a readable picture is skipped rather
+ * than failing the send, because documents belong to the provider's own file handling, not to this one.
  */
 internal object ImagePayload {
 
@@ -46,27 +63,47 @@ internal object ImagePayload {
      *
      * @param context Context used to open the URIs.
      * @param uris Staged attachment URIs, which may include documents.
+     * @param directory Folder the kept copies are written to, or `null` to send without keeping one.
      * @return The readable pictures, at most [MAX_IMAGES] of them.
      */
-    suspend fun load(context: Context, uris: List<Uri>): List<ChatImage> = withContext(Dispatchers.IO) {
-        uris.take(MAX_IMAGES).mapNotNull { uri -> read(context, uri) }
+    suspend fun load(
+        context: Context,
+        uris: List<Uri>,
+        directory: File?,
+    ): List<PreparedImage> = withContext(Dispatchers.IO) {
+        uris.take(MAX_IMAGES).mapNotNull { uri -> read(context = context, uri = uri, directory = directory) }
     }
 
     /** Reads one URI as a picture, or `null` when it is not one or cannot be read. */
-    private fun read(context: Context, uri: Uri): ChatImage? = runCatching {
+    private fun read(context: Context, uri: Uri, directory: File?): PreparedImage? = runCatching {
         val mimeType = context.contentResolver.getType(uri).orEmpty()
         val bytes = if (mimeType.startsWith(IMAGE_MIME_PREFIX)) open(context, uri) else null
-        bytes?.let { picture -> toSend(bytes = picture, mimeType = mimeType) }
+        bytes?.let { picture -> prepared(bytes = picture, mimeType = mimeType, directory = directory) }
     }.getOrNull()
 
     /** The bytes behind a URI, or `null` when it cannot be opened. */
     private fun open(context: Context, uri: Uri): ByteArray? =
         context.contentResolver.openInputStream(uri)?.use { stream -> stream.readBytes() }
 
+    /** The picture as it is sent, plus a copy kept so the chat can draw it again later. */
+    private fun prepared(bytes: ByteArray, mimeType: String, directory: File?): PreparedImage {
+        val encoded = toSend(bytes = bytes, mimeType = mimeType)
+        return PreparedImage(
+            image = ChatImage(
+                mimeType = encoded.mimeType,
+                base64 = Base64.getEncoder().encodeToString(encoded.bytes),
+            ),
+            storedUri = encoded.bytes.keptIn(directory = directory, mimeType = encoded.mimeType),
+        )
+    }
+
+    /** The exact bytes a request will carry, before they are base64 encoded. */
+    private data class Encoded(val mimeType: String, val bytes: ByteArray)
+
     /** The picture as it will be sent: untouched when small, a re-encoded JPEG otherwise. */
-    private fun toSend(bytes: ByteArray, mimeType: String): ChatImage = shrunk(bytes)
-        ?.let { smaller -> encoded(mimeType = JPEG_MIME_TYPE, bytes = smaller) }
-        ?: encoded(mimeType = mimeType, bytes = bytes)
+    private fun toSend(bytes: ByteArray, mimeType: String): Encoded =
+        shrunk(bytes)?.let { smaller -> Encoded(JPEG_MIME_TYPE, smaller) }
+            ?: Encoded(mimeType, bytes)
 
     /** A re-encoded copy of the picture, or `null` when it is small enough to send as it is. */
     private fun shrunk(bytes: ByteArray): ByteArray? {
@@ -99,6 +136,18 @@ internal object ImagePayload {
         }
     }
 
+    /** Writes the sent bytes into [directory] and returns their URI, or `null` when it cannot. */
+    private fun ByteArray.keptIn(directory: File?, mimeType: String): String? {
+        val target = directory ?: return null
+        return runCatching {
+            target.mkdirs()
+            val file = File(target, imageFileName(bytes = this, mimeType = mimeType))
+            // The name is a content hash, so an existing file is already this exact picture.
+            if (!file.exists()) file.writeBytes(this)
+            Uri.fromFile(file).toString()
+        }.getOrNull()
+    }
+
     /** Largest power of two that keeps the longer side at or above [MAX_EDGE]. */
     private fun sampleSizeFor(width: Int, height: Int): Int {
         val longest = maxOf(width, height)
@@ -108,13 +157,40 @@ internal object ImagePayload {
         }
         return sample
     }
-
-    /** Base64 form of a picture, which is what the `data:` URL will carry. */
-    private fun encoded(mimeType: String, bytes: ByteArray): ChatImage = ChatImage(
-        mimeType = mimeType,
-        base64 = Base64.getEncoder().encodeToString(bytes),
-    )
 }
+
+/**
+ * Name of the kept copy of a picture: a hash of its bytes plus an extension for its media type.
+ *
+ * Hashing rather than numbering keeps one copy of a picture sent twice and gives the name a stable
+ * value that can be asserted in a test.
+ *
+ * @param bytes The picture's bytes, exactly as sent.
+ * @param mimeType Media type of those bytes.
+ */
+internal fun imageFileName(bytes: ByteArray, mimeType: String): String =
+    sha256Hex(bytes).take(HASH_HEX_LENGTH) + "." + extensionFor(mimeType)
+
+/** File extension for a picture's media type, falling back to a neutral one. */
+internal fun extensionFor(mimeType: String): String = when (mimeType.lowercase()) {
+    "image/jpeg" -> "jpg"
+    "image/png" -> "png"
+    "image/webp" -> "webp"
+    "image/gif" -> "gif"
+    "image/heic" -> "heic"
+    "image/heif" -> "heif"
+    "image/bmp" -> "bmp"
+    "image/avif" -> "avif"
+    else -> "img"
+}
+
+/** Lower-case hex SHA-256 of [bytes]. */
+private fun sha256Hex(bytes: ByteArray): String =
+    MessageDigest.getInstance(SHA_256)
+        .digest(bytes)
+        .joinToString(separator = "") { byte ->
+            ((byte.toInt() and BYTE_MASK) + HEX_RADIX).toString(HEX_BITS).substring(1)
+        }
 
 /** Media types that mark a staged attachment as a picture. */
 private const val IMAGE_MIME_PREFIX = "image/"
@@ -138,3 +214,18 @@ private const val MAX_BYTES = 1_500_000
 
 /** Pictures sent with one message; the composer stages no more than this either. */
 private const val MAX_IMAGES = 5
+
+/** Characters of the hash kept in a file name: plenty to keep two pictures apart. */
+private const val HASH_HEX_LENGTH = 32
+
+/** Digest used to name kept copies. */
+private const val SHA_256 = "SHA-256"
+
+/** Mask of the low byte, so a negative byte formats as its unsigned value. */
+private const val BYTE_MASK = 0xFF
+
+/** Added to a byte so the hex form always has two digits before the leading one is trimmed. */
+private const val HEX_RADIX = 0x100
+
+/** Base of the hex representation. */
+private const val HEX_BITS = 16

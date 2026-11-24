@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zyn.chat.app.ChatDependencies
 import com.zyn.chat.app.data.providers.ApiKeyStore
+import com.zyn.chat.app.di.ChatViewModelStores
 import com.zyn.chat.app.di.ConversationListViewModelFactory
 import com.zyn.chat.app.domain.chat.newConversationId
 import com.zyn.chat.app.presentation.conversations.ConversationListViewModel
@@ -60,7 +61,7 @@ import com.zyn.chat.app.presentation.providers.ProvidersViewModelFactory
 import com.zyn.chat.app.ui.chat.ChatScreen
 import com.zyn.chat.app.ui.chat.ModelPickerSheet
 import com.zyn.chat.app.ui.components.ChatDrawer
-import com.zyn.chat.app.ui.components.ViewModelStore
+import com.zyn.chat.app.ui.components.ProvideViewModelStore
 import com.zyn.chat.app.ui.providers.ProvidersScreen
 import io.getstream.chat.android.client.ChatClient
 import kotlinx.coroutines.launch
@@ -196,6 +197,8 @@ public fun AiChatApp(
                     },
                     onDeleteConversation = { conversationId ->
                         conversationListViewModel.delete(conversationId)
+                        // Its ViewModels — and any answer still streaming in them — go with it.
+                        ChatViewModelStores.clear(conversationId)
                         // Deleting the chat currently on screen returns to a fresh one.
                         if (conversationId == selectedConversationId) startNewChat()
                     },
@@ -213,18 +216,31 @@ public fun AiChatApp(
         },
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // A combined key for AnimatedContent: conversationId for real chats, revision for new chats.
-            // This ensures that clicking "New chat" when already on a new chat triggers a state change.
-            val navigationKey = selectedConversationId ?: "new-chat-$newChatRevision"
+            // Both ids travel together: during a transition the outgoing screen must keep its own
+            // conversation, not read the incoming one from state that has already changed.
+            val chatTarget = remember(
+                selectedConversationId,
+                selectedChannelId,
+                newChatStorageId,
+                newChatRevision,
+            ) {
+                ChatTarget(
+                    navigationKey = selectedConversationId ?: "new-chat-$newChatRevision",
+                    storageId = selectedConversationId ?: newChatStorageId,
+                    channelId = selectedChannelId,
+                )
+            }
 
             AnimatedContent(
-                targetState = navigationKey,
-            ) { navigationKey ->
-                ViewModelStore(navigationKey) {
+                targetState = chatTarget,
+            ) { target ->
+                // Each conversation draws inside its own long-lived store, so scrolling to another
+                // chat cannot cancel an answer that is still being written.
+                ProvideViewModelStore(ChatViewModelStores.storeFor(target.storageId)) {
                     ChatScreen(
                         modifier = Modifier.fillMaxSize(),
-                        conversationId = selectedChannelId,
-                        localConversationId = selectedConversationId ?: newChatStorageId,
+                        conversationId = target.channelId,
+                        localConversationId = target.storageId,
                         chatDependencies = chatDependencies,
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onNewChatClick = { startNewChat() },
@@ -288,6 +304,24 @@ public fun AiChatApp(
         }
     }
 }
+
+/**
+ * What the chat area is showing: a stored conversation, or a chat that has not been stored yet.
+ *
+ * The three values are carried together through the transition because the outgoing and incoming
+ * screens are composed at the same time; reading them from the surrounding state would give the
+ * leaving screen the arriving screen's conversation.
+ *
+ * @param navigationKey Identity of the screen. Also changes for a new chat, so starting another one
+ *   while already on an unsaved chat is still a transition AnimatedContent can animate.
+ * @param storageId Id this conversation's history and ViewModel are kept under.
+ * @param channelId Stream channel id, or `null` when the chat has no channel of its own.
+ */
+private data class ChatTarget(
+    val navigationKey: String,
+    val storageId: String,
+    val channelId: String?,
+)
 
 /** Width of the touch strip along the screen edge that opens the drawer. */
 private val DrawerEdgeWidth = 22.dp

@@ -58,6 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -93,8 +94,10 @@ fun ChatScreen(
     onModelClick: () -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
+    // Keyed by the storage id, which every chat has. Keying by the channel id collided: it is null
+    // for every conversation answered by the person's own provider, so they all shared one ViewModel.
     val chatViewModel = viewModel<ChatViewModel>(
-        key = conversationId,
+        key = localConversationId,
         factory = ChatViewModelFactory(
             chatAiRepository = chatDependencies.chatAiRepository,
             providerRepository = chatDependencies.providerRepository,
@@ -132,6 +135,23 @@ fun ChatScreen(
         clipboard?.setPrimaryClip(ClipData.newPlainText("message", message.content))
         Toast.makeText(appContext, R.string.zyn_message_copied, Toast.LENGTH_SHORT).show()
     }
+
+    // Sharing hands the answer to the system chooser, so it goes wherever the person already shares
+    // text instead of tying the app to one target.
+    val shareMessage: (ChatUiState.Message) -> Unit = { message ->
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, message.content)
+        }
+        val chooser = Intent.createChooser(send, null).apply {
+            // The chooser is started from the application context, which needs this to run outside it.
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        appContext.startActivity(chooser)
+    }
+
+    // Only the newest answer can be regenerated: it replaces the exchange it supersedes.
+    val lastAssistantId = messages.firstOrNull { it.role == ChatUiState.Message.Role.Assistant }?.id
 
     // Editing a failed message drops it and puts its text back into the composer.
     val editFailedMessage: (ChatUiState.Message) -> Unit = { message ->
@@ -286,6 +306,13 @@ fun ChatScreen(
                                 message = message,
                                 onErrorAction = { errorActionMessage = it },
                                 onLongPress = { actionMenuMessage = it },
+                                onCopy = { copyMessage(message) },
+                                onShare = { shareMessage(message) },
+                                onRegenerate = { chatViewModel.regenerate(message) },
+                                onFeedback = { verdict ->
+                                    chatViewModel.setFeedback(message.id, verdict)
+                                },
+                                isLastAssistant = message.id == lastAssistantId,
                             )
                         }
                     }

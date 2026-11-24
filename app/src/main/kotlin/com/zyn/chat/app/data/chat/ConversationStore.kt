@@ -33,10 +33,36 @@ public enum class TitleSource {
     Manual,
 }
 
-/** One message of a stored conversation. */
+/**
+ * One attachment of a stored turn, in the form the transcript draws it again.
+ *
+ * Only pictures are kept: a copy is written into app storage when the message is sent, and [uri]
+ * points at that copy. The original picker URI is deliberately not stored — it is a temporary
+ * permission that can lapse once the process that received it is gone, which is why reopening a chat
+ * used to show nothing.
+ *
+ * @param uri `file://` URI of the kept copy.
+ * @param type Attachment type, `image` for a picture.
+ * @param name File name, when one is known.
+ * @param mimeType Media type of the kept copy.
+ */
+public data class StoredAttachment(
+    val uri: String,
+    val type: String = "image",
+    val name: String? = null,
+    val mimeType: String? = null,
+)
+
+/**
+ * One message of a stored conversation.
+ *
+ * [attachments] defaults to empty so conversation files written before pictures were kept still
+ * parse: a missing field means the turn simply has none.
+ */
 public data class StoredTurn(
     val role: String,
     val content: String,
+    val attachments: List<StoredAttachment> = emptyList(),
 )
 
 /**
@@ -133,7 +159,7 @@ internal class ConversationStore(
         return runCatching { serializer.fromJson(file.readText()) }.getOrNull()
     }
 
-    private fun fileFor(id: String): File = File(directory, "${id.toFileName()}.$JSON_EXTENSION")
+    private fun fileFor(id: String): File = File(directory, "${id.toStorageName()}.$JSON_EXTENSION")
 
     private companion object {
         const val JSON_EXTENSION = "json"
@@ -143,8 +169,11 @@ internal class ConversationStore(
 /** The folder conversations are kept in, given an application `filesDir`. */
 internal fun conversationsDirectory(filesDir: File): File = File(filesDir, "conversations")
 
+/** The folder kept copies of sent pictures live in, given an application `filesDir`. */
+internal fun picturesDirectory(filesDir: File): File = File(filesDir, "pictures")
+
 /** Conversation ids are channel ids and may contain separators, so they are flattened for a file name. */
-private fun String.toFileName(): String = map { character ->
+internal fun String.toStorageName(): String = map { character ->
     if (character.isLetterOrDigit() || character == '.' || character == '-' || character == '_') {
         character
     } else {
