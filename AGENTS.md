@@ -231,6 +231,12 @@ Copy only the files you actually changed: the sandbox loses the executable bit, 
 shows up as a spurious `100755 -> 100644` mode change — committing it would leave the wrapper
 non-executable for everyone.
 
+**Copy before you commit, every time.** `git commit --amend` (or a force-push) in the clone captures
+whatever the *clone* holds, not `/workspace`. Amending after editing a file in `/workspace` alone
+pushes the unchanged old content, and CI then fails with errors that look impossible because the
+file you are looking at is already fixed. Verify with `git show origin/main:<path>` before pushing,
+not by reading `/workspace`.
+
 ## Build & test notes
 
 - The release build emits **one universal APK** (`zyn-chat-app/build/outputs/apk/release/`) —
